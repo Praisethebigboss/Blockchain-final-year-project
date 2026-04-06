@@ -12,7 +12,7 @@ contract TranscriptRegistry {
     mapping(string => Transcript) public transcripts;
 
     function issueTranscript(string memory hash) public {
-
+        require(transcripts[hash].timestamp == 0, "Transcript already issued");
         transcripts[hash] = Transcript(
             hash,
             msg.sender,

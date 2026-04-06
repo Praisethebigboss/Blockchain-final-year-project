@@ -16,9 +16,14 @@ class ConnectionError(BackendError):
     pass
 
 
+class DuplicateError(BackendError):
+    pass
+
+
 class BackendClient:
-    def __init__(self, base_url: str = None):
+    def __init__(self, base_url: str = None, frontend_url: str = None):
         self.base_url = base_url or os.getenv("BACKEND_URL", "http://127.0.0.1:8000")
+        self.frontend_url = frontend_url or os.getenv("FRONTEND_URL", "http://localhost:8501")
 
     def upload_file(self, file_path: str) -> dict:
         with open(file_path, "rb") as f:
@@ -41,6 +46,8 @@ class BackendClient:
             json={"hash": hash_value},
             timeout=30,
         )
+        if response.status_code == 409:
+            raise DuplicateError(response.json().get("detail", "Transcript already issued"), response.status_code)
         if response.status_code != 200:
             raise BackendError(response.json().get("detail", "Store failed"), response.status_code)
         return response.json()
@@ -50,3 +57,6 @@ class BackendClient:
         if response.status_code != 200:
             raise BackendError(response.json().get("detail", "Verify failed"), response.status_code)
         return response.json()
+
+    def get_verification_url(self, hash_value: str) -> str:
+        return f"{self.frontend_url}/?verify={hash_value}"

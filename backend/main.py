@@ -2,7 +2,7 @@ import re
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from pydantic import BaseModel
 from hash_service import generate_file_hash
-from blockchain import store_hash, verify_hash
+from blockchain import store_hash, verify_hash, DuplicateTranscriptError
 
 app = FastAPI(title="Transcript Verification API")
 
@@ -37,6 +37,8 @@ def store(request: HashRequest):
     try:
         receipt = store_hash(hash_value)
         return {"status": "stored", "tx": receipt.transactionHash.hex()}
+    except DuplicateTranscriptError as e:
+        raise HTTPException(status_code=409, detail=str(e))
     except ConnectionError:
         raise HTTPException(status_code=503, detail="Blockchain node not available")
     except RuntimeError as e:

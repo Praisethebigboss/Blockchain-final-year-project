@@ -24,6 +24,7 @@ Academic transcripts are frequently forged or tampered with. Traditional verific
 | Blockchain | Solidity 0.8.20, Hardhat (local Ethereum node) |
 | Web3 Client | Web3.py |
 | Deployment | Hardhat deploy script (CommonJS) |
+| Frontend | Python / Streamlit | |
 
 ---
 
@@ -139,31 +140,32 @@ mapping(string => Transcript) public transcripts;
 
 ## 9. Current Limitations & Gaps
 
-| Area | Gap |
-|------|-----|
-| No Frontend | API-only; no web UI for end users |
-| No Authentication | Anyone can store/verify hashes; no role-based access |
-| No Duplicate Prevention | `issueTranscript()` silently overwrites existing entries |
-| No File Storage | Only hash is stored; original files are not retained |
-| Local Blockchain Only | Configured for Hardhat local node, no testnet/mainnet support |
-| No Issuer Validation | Any address can issue transcripts; no institution registry |
-| No Tests | No backend tests; blockchain test suite is stubbed |
-| Hardcoded Contract Address | Address is hardcoded in `backend/blockchain.py` |
-| No Pagination/Search | No way to list all issued transcripts |
-| No Event Logging | Contract doesn't emit events for off-chain indexing |
+| Area | Gap | Status |
+|------|-----|--------|
+| No Frontend | API-only; no web UI for end users | **Implemented** (Streamlit — 3-role pages) |
+| Shareable Verification Link | No shareable link for students to share | **Implemented** |
+| No Duplicate Prevention | `issueTranscript()` silently overwrites existing entries | **Implemented** (require check in contract) |
+| Issuer Authentication | Anyone can issue transcripts — no login required | **Implemented** (username/password with bcrypt) |
+| No File Storage | Only hash is stored; original files are not retained | Open |
+| Local Blockchain Only | Configured for Hardhat local node, no testnet/mainnet support | Open |
+| No Issuer Validation | Any address can issue transcripts; no institution registry | Open |
+| No Tests | No backend tests; blockchain test suite is stubbed | **Partial** (Hardhat tests added) |
+| Hardcoded Contract Address | Address is hardcoded in `backend/blockchain.py` | Open |
+| No Pagination/Search | No way to list all issued transcripts | Open |
+| No Event Logging | Contract doesn't emit events for off-chain indexing | Open |
 
 ---
 
 ## 10. Future Enhancements
 
-1. **React/Next.js Frontend** — File upload UI, verification portal, institution dashboard
-2. **Role-Based Access Control** — Only authorized institutions can issue transcripts
-3. **Contract Events** — Emit `TranscriptIssued(hash, issuer, timestamp)` for indexing
-4. **Duplicate Check** — Revert in contract if hash already exists
-5. **Testnet Deployment** — Sepolia/Goerli config with Infura/Alchemy
-6. **IPFS Integration** — Store encrypted original documents alongside hashes
-7. **Batch Operations** — Upload and issue multiple transcripts in one transaction
-8. **API Authentication** — JWT or API key-based auth for institutional users
+1. ~~**Frontend**~~ — **Done** — Streamlit 3-role pages (Issuer, Verifier, Student)
+2. ~~**Shareable Verification Link**~~ — **Done** — URL-based hash pre-fill and auto-verify
+3. ~~**Duplicate Check**~~ — **Done** — Revert in contract if hash already exists
+4. ~~**Issuer Authentication**~~ — **Done** — Username/password login with bcrypt, protected Issuer portal
+5. **Contract Events** — Emit `TranscriptIssued(hash, issuer, timestamp)` for indexing
+6. **Testnet Deployment** — Sepolia/Goerli config with Infura/Alchemy
+7. **IPFS Integration** — Store encrypted original documents alongside hashes
+8. **Batch Operations** — Upload and issue multiple transcripts in one transaction
 9. **Unit & Integration Tests** — Pytest for backend, Hardhat tests for contract
 10. **CI/CD Pipeline** — Automated lint, test, and deploy
 
@@ -180,6 +182,7 @@ mapping(string => Transcript) public transcripts;
 - Receive SHA-256 hash of the file
 - Hash is stored on-chain with issuer address and timestamp
 - Transaction hash returned as proof
+- Shareable verification link generated for easy sharing
 
 ### Verifier (Employer)
 
@@ -189,6 +192,7 @@ mapping(string => Transcript) public transcripts;
 - Provide a 64-character hex hash to the verification endpoint
 - Receive a boolean response indicating if the hash exists on-chain
 - Response returned within seconds
+- Can also open a shareable verification link with hash pre-filled
 
 ### Student
 
@@ -198,6 +202,7 @@ mapping(string => Transcript) public transcripts;
 - Receive transcript document from issuing institution
 - Receive corresponding SHA-256 hash or verification link
 - Hash can be independently verified by any third party
+- Shareable link opens verification page with hash auto-filled
 
 ---
 
@@ -214,8 +219,22 @@ transcript-verification/
 │   │   └── TranscriptRegistry.sol   # Solidity smart contract
 │   ├── scripts/
 │   │   └── deploy.cjs               # Hardhat deploy script
+│   ├── test/
+│   │   └── TranscriptRegistry.cjs   # Hardhat tests
 │   ├── hardhat.config.cjs           # Hardhat configuration
 │   └── package.json                 # Node.js dependencies
+├── frontend/
+│   ├── main.py              # Hub — role selection page
+│   ├── auth.py              # Authentication (bcrypt, session)
+│   ├── config.py            # Shared settings
+│   ├── backend_client.py    # Backend API client
+│   ├── requirements.txt     # Python dependencies
+│   ├── data/                # User store (users.json)
+│   └── pages/
+│       ├── Login.py         # Issuer login / account creation
+│       ├── 1_Issuer.py      # Issuer portal (protected)
+│       ├── 2_Verifier.py    # Verifier portal (public)
+│       └── 3_Student.py     # Student portal (public)
 └── docs/
     └── PRD.md               # This document
 ```
@@ -227,3 +246,7 @@ transcript-verification/
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2026-03-29 | System Analysis | Initial PRD based on codebase analysis |
+| 1.1 | 2026-04-04 | Build | Added Streamlit frontend with Issue/Verify tabs |
+| 1.2 | 2026-04-04 | Build | Added shareable verification link feature |
+| 1.3 | 2026-04-04 | Build | Added duplicate prevention with require check in contract, Hardhat tests |
+| 1.4 | 2026-04-04 | Build | Refactored frontend to 3-role pages (Issuer/Verifier/Student) with authentication |

@@ -1,75 +1,61 @@
-import re
-import tempfile
 import streamlit as st
-from backend_client import BackendClient, BackendError
+import sys
+from pathlib import Path
 
-HASH_PATTERN = re.compile(r"^[a-fA-F0-9]{64}$")
+sys.path.insert(0, str(Path(__file__).parent))
+import auth
+from config import BACKEND_URL, FRONTEND_URL
 
 st.set_page_config(page_title="Transcript Verification", page_icon=":scroll:")
 
+if "logged_in" not in st.session_state:
+    st.session_state["logged_in"] = False
+if "username" not in st.session_state:
+    st.session_state["username"] = None
+if "institution" not in st.session_state:
+    st.session_state["institution"] = None
+
 st.title("Transcript Verification")
-st.markdown("Issue and verify academic transcripts on the blockchain.")
+st.markdown("A blockchain-based system for issuing and verifying academic transcripts.")
 
-backend_url = st.sidebar.text_input("Backend URL", value="http://127.0.0.1:8000")
-st.sidebar.markdown("---")
-st.sidebar.markdown("**Requirements**")
-st.sidebar.markdown("- Backend running on the URL above")
-st.sidebar.markdown("- Hardhat node active on localhost:8545")
+st.markdown("---")
+st.subheader("Select Your Role")
 
-client = BackendClient(base_url=backend_url)
+col_issuer, col_verifier, col_student = st.columns(3)
 
-tab_issue, tab_verify = st.tabs(["Issue Transcript", "Verify Transcript"])
-
-with tab_issue:
-    st.header("Issue a Transcript")
-
-    uploaded_file = st.file_uploader(
-        "Upload transcript file",
-        type=["pdf", "png", "jpg", "jpeg"],
-        help="Supported: PDF, PNG, JPG",
-    )
-
-    if uploaded_file is not None:
-        with st.spinner("Generating hash..."):
-            try:
-                file_bytes = uploaded_file.getvalue()
-                result = client.upload_file_bytes(file_bytes, uploaded_file.name)
-                file_hash = result["hash"]
-
-                st.success("File hashed successfully")
-                st.code(file_hash, language=None)
-
-                if st.button("Store on Blockchain", type="primary"):
-                    with st.spinner("Storing on blockchain..."):
-                        try:
-                            store_result = client.store_hash(file_hash)
-                            st.success("Stored on blockchain!")
-                            st.markdown(f"**Transaction Hash:** `{store_result['tx']}`")
-                        except BackendError as e:
-                            st.error(f"Failed to store: {e.message}")
-            except BackendError as e:
-                st.error(f"Failed to hash file: {e.message}")
-
-with tab_verify:
-    st.header("Verify a Transcript")
-
-    hash_input = st.text_input(
-        "Enter transcript hash",
-        placeholder="e.g. a1b2c3d4e5f6...",
-        help="Enter the 64-character SHA-256 hash to verify",
-    )
-
-    if hash_input:
-        if not HASH_PATTERN.match(hash_input):
-            st.warning("Invalid hash format. Must be a 64-character hexadecimal string.")
+with col_issuer:
+    st.markdown("### 🏛️ Issuer")
+    st.markdown("**University / Institution**")
+    st.markdown("Issue transcripts and generate shareable verification links.")
+    if st.button("Open Issuer Portal", key="issuer_btn"):
+        if st.session_state.get("logged_in"):
+            st.switch_page("pages/1_Issuer.py")
         else:
-            if st.button("Verify", type="primary"):
-                with st.spinner("Verifying on blockchain..."):
-                    try:
-                        result = client.verify_hash(hash_input)
-                        if result.get("exists"):
-                            st.success("**Verified!** This transcript exists on the blockchain.")
-                        else:
-                            st.error("**Not Found.** This transcript hash does not exist on the blockchain.")
-                    except BackendError as e:
-                        st.error(f"Verification failed: {e.message}")
+            st.switch_page("pages/Login.py")
+
+with col_verifier:
+    st.markdown("### 💼 Verifier")
+    st.markdown("**Employer / Institution**")
+    st.markdown("Verify transcript hashes against the blockchain.")
+    if st.button("Open Verifier Portal", key="verifier_btn"):
+        st.switch_page("pages/2_Verifier.py")
+
+with col_student:
+    st.markdown("### 🎓 Student")
+    st.markdown("**Verify Your Transcript**")
+    st.markdown("Check if your transcript has been issued on the blockchain.")
+    if st.button("Open Student Portal", key="student_btn"):
+        st.switch_page("pages/3_Student.py")
+
+st.markdown("---")
+
+if st.session_state.get("logged_in"):
+    st.success(f"Logged in as: **{st.session_state['institution']}**")
+
+st.markdown("### How It Works")
+st.markdown("""
+1. **Issuer** uploads a transcript file and stores its SHA-256 hash on the blockchain.
+2. A **shareable verification link** is generated for the student.
+3. **Verifier** (employer/institution) opens the link or enters the hash to confirm authenticity.
+4. The blockchain ensures the transcript has not been tampered with or forged.
+""")
