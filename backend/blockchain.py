@@ -24,11 +24,29 @@ abi = [
         ],
         "stateMutability": "view",
         "type": "function"
+    },
+    {
+        "inputs": [
+            {"internalType": "string", "name": "", "type": "string"}
+        ],
+        "name": "transcripts",
+        "outputs": [
+            {"internalType": "string", "name": "documentHash", "type": "string"},
+            {"internalType": "address", "name": "issuer", "type": "address"},
+            {"internalType": "uint256", "name": "timestamp", "type": "uint256"}
+        ],
+        "stateMutability": "view",
+        "type": "function"
     }
 ]
 
-contract = w3.eth.contract(address=contract_address, abi=abi)
-w3.eth.default_account = w3.eth.accounts[0]
+
+def _get_contract():
+    return w3.eth.contract(address=contract_address, abi=abi)
+
+
+def _get_account():
+    return w3.eth.accounts[0]
 
 
 class DuplicateTranscriptError(Exception):
@@ -39,8 +57,10 @@ def store_hash(hash_value):
     try:
         if not w3.is_connected():
             raise ConnectionError("Blockchain node is not connected")
+        contract = _get_contract()
+        account = _get_account()
         try:
-            tx_hash = contract.functions.issueTranscript(hash_value).transact()
+            tx_hash = contract.functions.issueTranscript(hash_value).transact({"from": account})
             receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
             return receipt
         except ValueError as e:
@@ -62,8 +82,26 @@ def verify_hash(hash_value):
     try:
         if not w3.is_connected():
             raise ConnectionError("Blockchain node is not connected")
+        contract = _get_contract()
         return contract.functions.verifyTranscript(hash_value).call()
     except ConnectionError:
         raise
     except Exception as e:
         raise RuntimeError(f"Failed to verify hash on blockchain: {str(e)}")
+
+
+def get_transcript(hash_value):
+    try:
+        if not w3.is_connected():
+            raise ConnectionError("Blockchain node is not connected")
+        contract = _get_contract()
+        doc_hash, issuer, timestamp = contract.functions.transcripts(hash_value).call()
+        return {
+            "document_hash": doc_hash,
+            "issuer": issuer,
+            "timestamp": timestamp,
+        }
+    except ConnectionError:
+        raise
+    except Exception as e:
+        raise RuntimeError(f"Failed to get transcript: {str(e)}")

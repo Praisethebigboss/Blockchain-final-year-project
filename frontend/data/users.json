@@ -1,0 +1,10 @@
+{
+  "admin": {
+    "password_hash": "$2b$12$KPnCa4v5W/ezPNDDkVvm.uDcLMZy4wR7aPNjiZJ5Q/zr.3N8ZA8pC",
+    "institution": "Admin"
+  },
+  "praise": {
+    "password_hash": "$2b$12$LcDnLpRQDsl2bIkl7MwjKOoauHhdPOCi81tnPBAnvrS6OKhnFQUam",
+    "institution": "mountain top uni"
+  }
+}

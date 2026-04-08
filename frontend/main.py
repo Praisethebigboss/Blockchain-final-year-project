@@ -4,7 +4,6 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 import auth
-from config import BACKEND_URL, FRONTEND_URL
 
 st.set_page_config(page_title="Transcript Verification", page_icon=":scroll:")
 

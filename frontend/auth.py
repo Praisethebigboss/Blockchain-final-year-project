@@ -1,7 +1,7 @@
 import os
 import json
 from pathlib import Path
-from passlib.hash import bcrypt
+import bcrypt
 
 USERS_FILE = Path(__file__).parent / "data" / "users.json"
 
@@ -11,7 +11,7 @@ def _ensure_users_file():
     if not USERS_FILE.exists():
         users = {
             "admin": {
-                "password_hash": bcrypt.hash("admin123"),
+                "password_hash": hash_password("admin123"),
                 "institution": "Admin"
             }
         }
@@ -20,11 +20,11 @@ def _ensure_users_file():
 
 
 def hash_password(password: str) -> str:
-    return bcrypt.hash(password)
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
 
 def verify_password(password: str, hashed: str) -> bool:
-    return bcrypt.verify(password, hashed)
+    return bcrypt.checkpw(password.encode("utf-8"), hashed.encode("utf-8"))
 
 
 def load_users() -> dict:

@@ -77,7 +77,45 @@ Client → FastAPI Backend → SHA-256 Hashing
 | Validation | SHA-256 format enforced via regex |
 | Behavior | Calls `verifyTranscript()` on smart contract, returns boolean result |
 
-### 5.4 Health Check
+### 5.4 Get Transcript Details
+
+| Property | Detail |
+|----------|--------|
+| Endpoint | `GET /transcript/{hash_value}` |
+| Input | SHA-256 hash as path parameter |
+| Output | `{ hash, document_hash, issuer, timestamp, issued_at }` |
+| Validation | SHA-256 format enforced via regex |
+| Behavior | Returns full transcript struct from contract mapping |
+
+### 5.5 Store File on IPFS
+
+| Property | Detail |
+|----------|--------|
+| Endpoint | `POST /store-file` |
+| Input | Uploaded file (multipart/form-data) |
+| Output | `{ hash, cid, filename }` |
+| Validation | File must be present, non-empty, under 10MB |
+| Behavior | Generates SHA-256 hash, encrypts with AES-256-GCM, uploads to IPFS, stores CID in metadata DB |
+
+### 5.6 File Status
+
+| Property | Detail |
+|----------|--------|
+| Endpoint | `GET /file-status/{hash_value}` |
+| Input | SHA-256 hash as path parameter |
+| Output | `{ hash, stored, filename, size, cid }` |
+| Behavior | Returns file metadata if stored on IPFS |
+
+### 5.7 Download File
+
+| Property | Detail |
+|----------|--------|
+| Endpoint | `GET /download/{hash_value}` |
+| Input | SHA-256 hash as path parameter |
+| Output | File stream with Content-Disposition header |
+| Behavior | Fetches encrypted file from IPFS, decrypts, returns original file |
+
+### 5.8 Health Check
 
 | Property | Detail |
 |----------|--------|
@@ -120,6 +158,8 @@ mapping(string => Transcript) public transcripts;
 |-------------|-----------|
 | 200 | Successful operation |
 | 400 | Invalid input (missing file, empty file, invalid hash format) |
+| 404 | Transcript not found (GET /transcript/{hash}) |
+| 409 | Duplicate transcript (POST /store) |
 | 500 | Internal server error (contract call failure) |
 | 503 | Blockchain node not available |
 
@@ -146,7 +186,8 @@ mapping(string => Transcript) public transcripts;
 | Shareable Verification Link | No shareable link for students to share | **Implemented** |
 | No Duplicate Prevention | `issueTranscript()` silently overwrites existing entries | **Implemented** (require check in contract) |
 | Issuer Authentication | Anyone can issue transcripts — no login required | **Implemented** (username/password with bcrypt) |
-| No File Storage | Only hash is stored; original files are not retained | Open |
+| Verification Details | Verifier and Student see only boolean result — no issuer address or timestamp | **Implemented** (GET /transcript endpoint + UI display) |
+| No File Storage | Only hash is stored; original files are not retained | **Implemented** (IPFS + AES-256-GCM encryption) |
 | Local Blockchain Only | Configured for Hardhat local node, no testnet/mainnet support | Open |
 | No Issuer Validation | Any address can issue transcripts; no institution registry | Open |
 | No Tests | No backend tests; blockchain test suite is stubbed | **Partial** (Hardhat tests added) |
@@ -162,9 +203,9 @@ mapping(string => Transcript) public transcripts;
 2. ~~**Shareable Verification Link**~~ — **Done** — URL-based hash pre-fill and auto-verify
 3. ~~**Duplicate Check**~~ — **Done** — Revert in contract if hash already exists
 4. ~~**Issuer Authentication**~~ — **Done** — Username/password login with bcrypt, protected Issuer portal
-5. **Contract Events** — Emit `TranscriptIssued(hash, issuer, timestamp)` for indexing
-6. **Testnet Deployment** — Sepolia/Goerli config with Infura/Alchemy
-7. **IPFS Integration** — Store encrypted original documents alongside hashes
+5. ~~**IPFS Integration**~~ — **Done** — Store encrypted original documents with AES-256-GCM
+6. **Contract Events** — Emit `TranscriptIssued(hash, issuer, timestamp)` for indexing
+7. **Testnet Deployment** — Sepolia/Goerli config with Infura/Alchemy
 8. **Batch Operations** — Upload and issue multiple transcripts in one transaction
 9. **Unit & Integration Tests** — Pytest for backend, Hardhat tests for contract
 10. **CI/CD Pipeline** — Automated lint, test, and deploy
@@ -213,7 +254,11 @@ transcript-verification/
 ├── backend/
 │   ├── main.py              # FastAPI application
 │   ├── hash_service.py      # SHA-256 hashing utility
-│   └── blockchain.py        # Web3 integration layer
+│   ├── blockchain.py        # Web3 integration layer
+│   ├── storage_service.py  # IPFS + AES encryption
+│   ├── storage_db.json     # File metadata (auto-created)
+│   ├── .env               # Encryption key
+│   └── requirements.txt
 ├── blockchain/
 │   ├── contracts/
 │   │   └── TranscriptRegistry.sol   # Solidity smart contract
@@ -228,6 +273,7 @@ transcript-verification/
 │   ├── auth.py              # Authentication (bcrypt, session)
 │   ├── config.py            # Shared settings
 │   ├── backend_client.py    # Backend API client
+│   ├── start_all.py         # One-click startup script
 │   ├── requirements.txt     # Python dependencies
 │   ├── data/                # User store (users.json)
 │   └── pages/
@@ -250,3 +296,7 @@ transcript-verification/
 | 1.2 | 2026-04-04 | Build | Added shareable verification link feature |
 | 1.3 | 2026-04-04 | Build | Added duplicate prevention with require check in contract, Hardhat tests |
 | 1.4 | 2026-04-04 | Build | Refactored frontend to 3-role pages (Issuer/Verifier/Student) with authentication |
+| 1.5 | 2026-04-04 | Build | Fixed verification link bug — get_verification_url() now points to Student page |
+| 1.6 | 2026-04-04 | Build | Replaced passlib with raw bcrypt (compatibility fix), added start_all.py one-click startup |
+| 1.7 | 2026-04-07 | Build | Added /transcript/{hash} endpoint, verifier and student pages now display issuer address and timestamp |
+| 1.8 | 2026-04-07 | Build | Added IPFS file storage with AES-256-GCM encryption — store-file, file-status, download endpoints |
