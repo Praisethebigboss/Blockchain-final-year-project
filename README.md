@@ -171,8 +171,55 @@ Verified transcripts can be downloaded as original files (issuer, verifier, and 
 - **Authentication:** bcrypt
 - **File Storage:** IPFS + AES-256-GCM encryption
 
+## Configuration
+
+### Environment Variables (backend/.env)
+
+```bash
+# Required: Encryption key (auto-generated on first run)
+TRANSCRIPT_ENCRYPTION_KEY=<32-byte hex key>
+
+# Blockchain configuration
+ETHEREUM_NETWORK=localhost  # Options: localhost, sepolia, mainnet
+CONTRACT_ADDRESS=0x...     # Auto-populated after deploy
+PRIVATE_KEY=<your key>       # Required for sepolia/mainnet
+
+# IPFS configuration
+IPFS_HOST=127.0.0.1
+IPFS_PORT=5001
+```
+
+### Network Modes
+
+| Network | Use | Requirements |
+|---------|-----|--------------|
+| `localhost` (default) | Development | Hardhat node runs automatically |
+| `sepolia` | Testing | Infura/Alchemy RPC URL + private key |
+| `mainnet` | Production | Infura/Alchemy RPC URL + private key |
+
+### Switching Networks
+
+1. Edit `backend/.env`:
+   ```
+   ETHEREUM_NETWORK=sepolia
+   PRIVATE_KEY=0x...
+   CONTRACT_ADDRESS=<deployed contract>
+   ```
+
+2. Deploy contract to the target network:
+   ```bash
+   cd blockchain
+   npx hardhat run scripts/deploy.cjs --network sepolia
+   ```
+
+3. Start services (Hardhat will be skipped):
+   ```bash
+   python start_all.py
+   ```
+
 ## Security
 
 - **Files are encrypted before upload** — AES-256-GCM encryption ensures files are secure at rest
 - **Encryption key** stored in `backend/.env` — never commit this file
 - **Hash immutability** — once on blockchain, transcript hashes cannot be altered
+- **Private key** — never commit; use environment variables only

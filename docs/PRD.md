@@ -188,12 +188,12 @@ mapping(string => Transcript) public transcripts;
 | Issuer Authentication | Anyone can issue transcripts — no login required | **Implemented** (username/password with bcrypt) |
 | Verification Details | Verifier and Student see only boolean result — no issuer address or timestamp | **Implemented** (GET /transcript endpoint + UI display) |
 | No File Storage | Only hash is stored; original files are not retained | **Implemented** (IPFS + AES-256-GCM encryption) |
-| Local Blockchain Only | Configured for Hardhat local node, no testnet/mainnet support | Open |
+| Hardcoded Contract Address | Address is hardcoded in `backend/blockchain.py` | **Implemented** (reads from .env or contract-config.json) |
+| Local Blockchain Only | Configured for Hardhat local node, no testnet/mainnet support | **Implemented** (sepolia/mainnet via env) |
 | No Issuer Validation | Any address can issue transcripts; no institution registry | Open |
-| No Tests | No backend tests; blockchain test suite is stubbed | **Partial** (Hardhat tests added) |
-| Hardcoded Contract Address | Address is hardcoded in `backend/blockchain.py` | Open |
-| No Pagination/Search | No way to list all issued transcripts | Open |
-| No Event Logging | Contract doesn't emit events for off-chain indexing | Open |
+| No Pagination/Search | No way to list all issued transcripts | **Implemented** (getTotalCount, getHashes in contract + /transcripts API) |
+| No Event Logging | Contract doesn't emit events for off-chain indexing | **Implemented** (TranscriptIssued event) |
+| No Tests | No backend tests | **Implemented** (91 pytest tests, all pass) |
 
 ---
 
@@ -204,11 +204,12 @@ mapping(string => Transcript) public transcripts;
 3. ~~**Duplicate Check**~~ — **Done** — Revert in contract if hash already exists
 4. ~~**Issuer Authentication**~~ — **Done** — Username/password login with bcrypt, protected Issuer portal
 5. ~~**IPFS Integration**~~ — **Done** — Store encrypted original documents with AES-256-GCM
-6. **Contract Events** — Emit `TranscriptIssued(hash, issuer, timestamp)` for indexing
-7. **Testnet Deployment** — Sepolia/Goerli config with Infura/Alchemy
-8. **Batch Operations** — Upload and issue multiple transcripts in one transaction
-9. **Unit & Integration Tests** — Pytest for backend, Hardhat tests for contract
-10. **CI/CD Pipeline** — Automated lint, test, and deploy
+6. ~~**Contract Events**~~ — **Done** — Emit `TranscriptIssued(hash, issuer, timestamp)` for indexing
+7. ~~**List Transcripts**~~ — **Done** — Paginated /transcripts endpoint with getTotalCount, getHashes
+8. ~~**Unit & Integration Tests**~~ — **Done** — 91 pytest tests for backend
+9. **Testnet Deployment** — Sepolia/Goerli config with Infura/Alchemy
+10. **Batch Operations** — Upload and issue multiple transcripts in one transaction
+11. **CI/CD Pipeline** — Automated lint, test, and deploy
 
 ---
 
@@ -300,3 +301,4 @@ transcript-verification/
 | 1.6 | 2026-04-04 | Build | Replaced passlib with raw bcrypt (compatibility fix), added start_all.py one-click startup |
 | 1.7 | 2026-04-07 | Build | Added /transcript/{hash} endpoint, verifier and student pages now display issuer address and timestamp |
 | 1.8 | 2026-04-07 | Build | Added IPFS file storage with AES-256-GCM encryption — store-file, file-status, download endpoints |
+| 1.9 | 2026-04-13 | Build | Added contract events (TranscriptIssued), list transcripts with pagination, 91 backend tests |

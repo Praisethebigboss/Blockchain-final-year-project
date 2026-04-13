@@ -2,7 +2,7 @@ import os
 import json
 import time
 from pathlib import Path
-from cryptography.hazmat.primitives.ciphers.aead import AES256GCM
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM as AES256GCM
 
 STORAGE_DB = Path(__file__).parent / "storage_db.json"
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB limit
@@ -41,16 +41,32 @@ def decrypt_file(ciphertext: bytes, nonce: bytes) -> bytes:
     return aesgcm.decrypt(nonce, ciphertext, None)
 
 
+def _get_ipfs_connect_string():
+    host = os.environ.get("IPFS_HOST", "127.0.0.1")
+    port = os.environ.get("IPFS_PORT", "5001")
+    return f"/ip4/{host}/tcp/{port}"
+
+
 def upload_to_ipfs(data: bytes) -> str:
     import ipfshttpclient
-    with ipfshttpclient.connect("/ip4/127.0.0.1/tcp/5001") as client:
-        res = client.add_bytes(data)
-        return res["Hash"]
+    import ipfshttpclient.client as client_mod
+    orig = client_mod.assert_version
+    def patched(v, mn=client_mod.VERSION_MINIMUM, mx="0.41.0", bl=client_mod.VERSION_BLACKLIST):
+        return orig(v, mn, "0.41.0", bl)
+    client_mod.assert_version = patched
+    with ipfshttpclient.connect(_get_ipfs_connect_string()) as client:
+        cid = client.add_bytes(data)
+        return cid
 
 
 def download_from_ipfs(cid: str) -> bytes:
     import ipfshttpclient
-    with ipfshttpclient.connect("/ip4/127.0.0.1/tcp/5001") as client:
+    import ipfshttpclient.client as client_mod
+    orig = client_mod.assert_version
+    def patched(v, mn=client_mod.VERSION_MINIMUM, mx="0.41.0", bl=client_mod.VERSION_BLACKLIST):
+        return orig(v, mn, "0.41.0", bl)
+    client_mod.assert_version = patched
+    with ipfshttpclient.connect(_get_ipfs_connect_string()) as client:
         return client.cat(cid)
 
 

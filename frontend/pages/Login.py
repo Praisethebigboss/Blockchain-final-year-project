@@ -14,10 +14,12 @@ if "institution" not in st.session_state:
 
 if st.session_state.get("logged_in"):
     st.success(f"Already logged in as **{st.session_state['institution']}**")
-    col1, col2 = st.columns(2)
+    col1, col2, col3 = st.columns(3)
     with col1:
-        st.page_link("pages/1_Issuer.py", label="Go to Issuer Portal")
+        st.page_link("pages/0_Dashboard.py", label="Dashboard")
     with col2:
+        st.page_link("pages/1_Issuer.py", label="Go to Issuer Portal")
+    with col3:
         if st.button("Logout"):
             auth.logout()
             st.rerun()

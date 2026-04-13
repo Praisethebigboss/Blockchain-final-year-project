@@ -2,6 +2,7 @@ import streamlit as st
 import datetime
 import sys
 import re
+import hashlib
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -62,8 +63,10 @@ if uploaded_file is not None:
     with st.spinner("Generating hash..."):
         try:
             file_bytes = uploaded_file.getvalue()
-            result = client.upload_file_bytes(file_bytes, uploaded_file.name)
-            file_hash = result["hash"]
+            # Local hashing - doesn't need backend
+            sha256 = hashlib.sha256()
+            sha256.update(file_bytes)
+            file_hash = sha256.hexdigest()
             st.session_state["last_issued"] = {
                 "filename": uploaded_file.name,
                 "hash": file_hash,
@@ -73,8 +76,8 @@ if uploaded_file is not None:
             st.success("File hashed successfully!")
             st.code(file_hash, language=None)
             st.info(f"File size: {len(file_bytes) / 1024:.1f} KB")
-        except BackendError as e:
-            st.error(f"Failed to hash file: {e.message}")
+        except Exception as e:
+            st.error(f"Failed to hash file: {e}")
             st.session_state["last_issued"] = None
 
 if st.session_state.get("last_issued") is not None:
@@ -89,36 +92,36 @@ if st.session_state.get("last_issued") is not None:
         store_clicked = st.button("Store on Blockchain", type="primary", use_container_width=True)
 
     if store_clicked:
+        store_result = None
+        blockchain_ok = False
+        
         with st.spinner("Storing on blockchain..."):
             try:
                 store_result = client.store_hash(issue_data["hash"])
                 st.success("Stored on blockchain!")
                 st.markdown(f"**Transaction Hash:** `{store_result['tx']}`")
+                blockchain_ok = True
             except DuplicateError as e:
                 st.warning(f"⚠️ {e.message}")
-                st.session_state["last_issued"] = None
-                st.rerun()
-            except BackendError as e:
-                st.error(f"Failed to store: {e.message}")
-                st.rerun()
+                blockchain_ok = True
+            except Exception as e:
+                st.error(f"Blockchain error: {str(e)[:100]}")
+                st.info("Continuing without blockchain storage.")
 
+        ipfs_stored = False
         with st.spinner("Uploading to IPFS..."):
             try:
                 file_result = client.store_file(issue_data["file_bytes"], issue_data["filename"])
                 st.success("File uploaded to IPFS!")
-                st.markdown(f"**IPFS CID:** `{file_result['cid']}`")
                 ipfs_stored = True
-            except BackendError as e:
-                st.warning(f"⚠️ IPFS upload failed: {e.message}. File not stored.")
-                ipfs_stored = False
             except Exception as e:
-                st.warning(f"⚠️ IPFS upload failed: {str(e)}. File not stored.")
-                ipfs_stored = False
+                st.warning("IPFS unavailable - download will not work.")
 
         verify_url = client.get_verification_url(issue_data["hash"])
         st.markdown("---")
         st.subheader("Shareable Verification Link")
         st.code(verify_url, language=None)
+        st.info("Share this link with the student or employer.")
 
         download_url = client.get_download_url(issue_data["hash"])
 
@@ -133,19 +136,22 @@ if st.session_state.get("last_issued") is not None:
                 unsafe_allow_html=True,
             )
         with col_download:
-            st.markdown(
-                f'<a href="{download_url}" download="{issue_data['filename']}">'
-                f'<button style="background-color:#4CAF50;color:white;padding:10px 20px;'
-                f'border:none;border-radius:6px;cursor:pointer;width:100%;font-size:14px;">'
-                f"Download Original</button>"
-                f"</a>",
-                unsafe_allow_html=True,
-            )
+            if ipfs_stored:
+                st.markdown(
+                    f'<a href="{download_url}" download="{issue_data["filename"]}">'
+                    f'<button style="background-color:#4CAF50;color:white;padding:10px 20px;'
+                    f'border:none;border-radius:6px;cursor:pointer;width:100%;font-size:14px;">'
+                    f"Download Original</button>"
+                    f"</a>",
+                    unsafe_allow_html=True,
+                )
+            else:
+                st.caption("Download unavailable (IPFS not running)")
 
         st.session_state["issue_history"].insert(0, {
             "filename": issue_data["filename"],
             "hash": issue_data["hash"],
-            "tx": store_result.get("tx", "N/A"),
+            "tx": store_result.get("tx", "N/A") if store_result else "Failed",
             "ipfs": "Yes" if ipfs_stored else "No",
             "time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         })

@@ -50,63 +50,78 @@ if not HASH_PATTERN.match(query_hash):
     st.stop()
 
 st.header("Verifying Your Transcript...")
+
+verification_ok = False
+exists = False
+
 with st.spinner("Checking blockchain..."):
     try:
         result = client.verify_hash(query_hash)
-        if result.get("exists"):
-            st.markdown("## ✅ Your Transcript is Verified")
-            st.success(
-                "This transcript hash exists on the blockchain and has been "
-                "issued by an authorized institution."
-            )
+        exists = result.get("exists", False)
+        verification_ok = True
+    except Exception as e:
+        st.error(f"Verification unavailable: {str(e)[:80]}")
+        st.info("Please try again later.")
 
-            with st.spinner("Fetching details..."):
+if verification_ok:
+    if exists:
+        st.markdown("## ✅ Your Transcript is Verified")
+        st.success(
+            "This transcript hash exists on the blockchain and has been "
+            "issued by an authorized institution."
+        )
+
+        transcript = None
+        with st.spinner("Fetching details..."):
+            try:
                 transcript = client.get_transcript(query_hash)
-            if transcript:
-                st.markdown("---")
-                st.subheader("Transcript Details")
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.markdown("**Issued by:**")
-                    st.code(transcript["issuer"], language=None)
-                with col2:
-                    st.markdown("**Issued at:**")
-                    st.markdown(f"`{transcript['issued_at']}`")
-                st.markdown(f"**Document Hash:** `{transcript['document_hash']}`")
+            except Exception:
+                pass
+                
+        if transcript:
+            st.markdown("---")
+            st.subheader("Transcript Details")
+            col1, col2 = st.columns(2)
+            with col1:
+                st.markdown("**Issued by:**")
+                st.code(transcript["issuer"], language=None)
+            with col2:
+                st.markdown("**Issued at:**")
+                st.markdown(f"`{transcript['issued_at']}`")
+            st.markdown(f"**Document Hash:** `{transcript['document_hash']}`")
 
-            with st.spinner("Checking for original file..."):
-                try:
-                    file_status = client.get_file_status(query_hash)
-                    if file_status.get("stored"):
-                        st.markdown("---")
-                        st.subheader("Original Transcript Available")
-                        st.markdown(f"**Filename:** `{file_status['filename']}`")
-                        st.markdown(f"**Size:** `{file_status['size'] / 1024:.1f} KB`")
+        file_status = None
+        with st.spinner("Checking for original file..."):
+            try:
+                file_status = client.get_file_status(query_hash)
+                if file_status.get("stored"):
+                    st.markdown("---")
+                    st.subheader("Original Transcript Available")
+                    st.markdown(f"**Filename:** `{file_status['filename']}`")
+                    st.markdown(f"**Size:** `{file_status['size'] / 1024:.1f} KB`")
 
-                        download_url = client.get_download_url(query_hash)
-                        st.markdown(
-                            f'<a href="{download_url}" download="{file_status["filename"]}">'
-                            f'<button style="background-color:#4CAF50;color:white;padding:14px 28px;'
-                            f'border:none;border-radius:6px;cursor:pointer;width:100%;font-size:18px;">'
-                            f"Download My Transcript</button>"
-                            f"</a>",
-                            unsafe_allow_html=True,
-                        )
-                    else:
-                        st.info("Original file not stored. Contact your institution for the document.")
-                except BackendError:
-                    st.info("Original file not available for download.")
+                    download_url = client.get_download_url(query_hash)
+                    st.markdown(
+                        f'<a href="{download_url}" download="{file_status["filename"]}">'
+                        f'<button style="background-color:#4CAF50;color:white;padding:14px 28px;'
+                        f'border:none;border-radius:6px;cursor:pointer;width:100%;font-size:18px;">'
+                        f"Download My Transcript</button>"
+                        f"</a>",
+                        unsafe_allow_html=True,
+                    )
+                else:
+                    st.info("Original file not stored.")
+            except Exception:
+                st.info("Original file not available.")
 
-            st.balloons()
-        else:
-            st.markdown("## ❌ Transcript Not Found")
-            st.error(
-                "This transcript hash was not found on the blockchain. "
-                "Please contact your institution."
-            )
-            st.markdown(f"**Hash:** `{query_hash}`")
-    except BackendError as e:
-        st.error(f"Verification failed: {e.message}")
+        st.balloons()
+    else:
+        st.markdown("## ❌ Transcript Not Found")
+        st.error(
+            "This transcript hash was not found on the blockchain. "
+            "Please contact your institution."
+        )
+        st.markdown(f"**Hash:** `{query_hash}`")
 
 st.markdown("---")
 st.caption("Having trouble? Contact your institution for assistance.")

@@ -3,6 +3,7 @@ import time
 import sys
 import os
 import re
+import json
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(SCRIPT_DIR)
@@ -74,6 +75,28 @@ def update_contract_address(new_address):
         log_warning(f"Could not find contract_address in blockchain.py — please update manually")
 
 
+def update_env_file(new_address):
+    env_file = os.path.join(BACKEND_DIR, ".env")
+    if not os.path.exists(env_file):
+        log_warning(f".env not found at {env_file}")
+        return
+    with open(env_file, "r") as f:
+        lines = f.readlines()
+    updated = False
+    new_lines = []
+    for line in lines:
+        if line.strip().startswith("CONTRACT_ADDRESS="):
+            new_lines.append(f"CONTRACT_ADDRESS={new_address}\n")
+            updated = True
+        else:
+            new_lines.append(line)
+    if not updated:
+        new_lines.append(f"\nCONTRACT_ADDRESS={new_address}\n")
+    with open(env_file, "w") as f:
+        f.writelines(new_lines)
+    log_success(f"Updated CONTRACT_ADDRESS in backend/.env")
+
+
 def start_service(name, cwd, command):
     log(f"Starting {name}...", CYAN)
     try:
@@ -134,7 +157,41 @@ def check_ipfs_installed():
         capture_output=True,
         text=True,
     )
-    return result.returncode == 0
+    if result.returncode == 0:
+        return True
+    try:
+        import urllib.request
+        urllib.request.urlopen("http://127.0.0.1:5001/webui", timeout=3)
+        return True
+    except Exception:
+        return False
+
+
+def get_network_config():
+    env_file = os.path.join(BACKEND_DIR, ".env")
+    network = "localhost"
+    private_key = ""
+    
+    if os.path.exists(env_file):
+        with open(env_file, "r") as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith("ETHEREUM_NETWORK="):
+                    network = line.split("=", 1)[1].strip()
+                elif line.startswith("PRIVATE_KEY="):
+                    private_key = line.split("=", 1)[1].strip()
+    
+    is_local = network in ("localhost", "hardhat")
+    needs_hardhat = is_local
+    needs_deploy = is_local
+    
+    return {
+        "network": network,
+        "private_key": private_key,
+        "is_local": is_local,
+        "needs_hardhat": needs_hardhat,
+        "needs_deploy": needs_deploy,
+    }
 
 
 def stop_all():
@@ -161,8 +218,13 @@ def main():
     log(f"  Backend:    {BACKEND_DIR}", DIM)
     log(f"  Frontend:   {FRONTEND_DIR}", DIM)
 
-    # Check and start IPFS
-    log("\n[Step 1/6] Checking IPFS...", WHITE, bright=True)
+    net_config = get_network_config()
+    log(f"\nNetwork: {net_config['network']} ({'local' if net_config['is_local'] else 'external'})", WHITE, bright=True)
+
+    step = 1
+
+    log(f"\n[Step {step}/6] Checking IPFS...", WHITE, bright=True)
+    step += 1
     if not check_ipfs_installed():
         log_error("IPFS is not installed!")
         log("", WHITE)
@@ -171,7 +233,7 @@ def main():
         log("  - Manual: download from https://dist.ipfs.tech", DIM)
         log("  - Desktop: https://docs.ipfs.tech/install/ipfs-desktop/", DIM)
         log("", WHITE)
-        log_warning("  Skipping IPFS — file storage will not work.", YELLOW)
+        log_warning("  Skipping IPFS — file storage will not work.")
         ipfs_started = False
     else:
         log("  IPFS found, attempting to start daemon...", CYAN)
@@ -189,66 +251,103 @@ def main():
             log(f"  {ipfs_result.stdout[:200]}", DIM)
             ipfs_started = False
 
-    log("\n[Step 2/6] Starting Hardhat node...", WHITE, bright=True)
-    proc_node = start_service(
-        "Hardhat Node",
-        BLOCKCHAIN_DIR,
-        "npx hardhat node",
-    )
-    if not proc_node:
-        log_error("Hardhat node failed to start. Exiting.")
-        sys.exit(1)
+    if net_config["needs_hardhat"]:
+        log(f"\n[Step {step}/6] Starting Hardhat node...", WHITE, bright=True)
+        step += 1
+        proc_node = start_service(
+            "Hardhat Node",
+            BLOCKCHAIN_DIR,
+            "npx hardhat node",
+        )
+        if not proc_node:
+            log_error("Hardhat node failed to start. Exiting.")
+            sys.exit(1)
 
-    log("Waiting for Hardhat node to be ready...", YELLOW)
-    if not wait_for_service("http://127.0.0.1:8545", "Hardhat Node", max_attempts=20):
-        log_error("Hardhat node did not start. Check if port 8545 is in use.")
-        sys.exit(1)
+        log("Waiting for Hardhat node to be ready...", YELLOW)
+        if not wait_for_service("http://127.0.0.1:8545", "Hardhat Node", max_attempts=20):
+            log_error("Hardhat node did not start. Check if port 8545 is in use.")
+            sys.exit(1)
 
-    log_success("Hardhat node is running")
-
-    log("\n[Step 3/6] Compiling contract...", WHITE, bright=True)
-    log_step("Running: npx hardhat compile")
-    stdout, stderr, code = run_command("npx hardhat compile", BLOCKCHAIN_DIR)
-    if code == 0:
-        log_success("Contract compiled successfully")
+        log_success("Hardhat node is running")
     else:
-        log_error("Contract compilation failed")
-        log(f"Output: {stdout[:300]}", RED)
-        log(f"Errors: {stderr[:300]}", RED)
+        log(f"\n[Step {step}/6] Skipping Hardhat (external network: {net_config['network']})", WHITE, bright=True)
+        step += 1
+        log(f"  Using {net_config['network']} — assuming contract is already deployed", DIM)
 
-    log("\n[Step 4/6] Deploying contract...", WHITE, bright=True)
-    log_step("Running: npx hardhat run scripts/deploy.cjs --network localhost")
-    stdout, stderr, code = run_command(
-        "npx hardhat run scripts/deploy.cjs --network localhost",
-        BLOCKCHAIN_DIR,
-    )
+    if net_config["needs_deploy"]:
+        log(f"\n[Step {step}/6] Compiling contract...", WHITE, bright=True)
+        step += 1
+        log_step("Running: npx hardhat compile")
+        stdout, stderr, code = run_command("npx hardhat compile", BLOCKCHAIN_DIR)
+        if code == 0:
+            log_success("Contract compiled successfully")
+        else:
+            log_error("Contract compilation failed")
+            log(f"Output: {stdout[:300]}", RED)
+            log(f"Errors: {stderr[:300]}", RED)
 
-    new_address = None
-    for line in stdout.split("\n"):
-        if "Contract deployed to:" in line:
-            new_address = line.split("Contract deployed to:")[-1].strip()
-            break
+        log(f"\n[Step {step}/6] Deploying contract...", WHITE, bright=True)
+        step += 1
+        log_step("Running: npx hardhat run scripts/deploy.cjs --network localhost")
+        stdout, stderr, code = run_command(
+            "npx hardhat run scripts/deploy.cjs --network localhost",
+            BLOCKCHAIN_DIR,
+        )
 
-    if new_address:
-        log_success(f"Contract deployed at: {new_address}")
-        update_contract_address(new_address)
+        new_address = None
+        for line in stdout.split("\n"):
+            if "Contract deployed to:" in line:
+                new_address = line.split("Contract deployed to:")[-1].strip()
+                break
+
+        if new_address:
+            log_success(f"Contract deployed at: {new_address}")
+            update_env_file(new_address)
+            update_contract_address(new_address)
+        else:
+            log_error("Could not find contract address in deployment output")
+            log(f"Output: {stdout[:500]}", DIM)
+            if code != 0:
+                log(f"Stderr: {stderr[:300]}", RED)
     else:
-        log_error("Could not find contract address in deployment output")
-        log(f"Output: {stdout[:500]}", DIM)
-        if code != 0:
-            log(f"Stderr: {stderr[:300]}", RED)
+        config_path = os.path.join(BACKEND_DIR, "contract-config.json")
+        if os.path.exists(config_path):
+            try:
+                with open(config_path, "r") as f:
+                    config = json.load(f)
+                    addr = config.get("contract_address")
+                    if addr:
+                        log(f"\n[Step {step}/6] Loading contract address from config...", WHITE, bright=True)
+                        step += 1
+                        log_success(f"Using deployed contract: {addr}")
+            except Exception as e:
+                log_warning(f"Could not load contract config: {e}")
+        
+        network_rpc = {
+            "sepolia": "https://rpc.sepolia.org",
+            "mainnet": "https://eth.llamarpc.com",
+        }.get(net_config["network"], f"http://127.0.0.1:8545")
+        
+        log(f"\n[Step {step}/6] Connecting to {net_config['network']}...", WHITE, bright=True)
+        step += 1
+        if wait_for_service(network_rpc, f"Ethereum Node ({net_config['network']})", max_attempts=5):
+            log_success(f"Connected to {net_config['network']}")
+        else:
+            log_warning(f"Could not connect to {net_config['network']} — backend may fail")
 
-    log("\n[Step 5/6] Starting backend...", WHITE, bright=True)
+    log(f"\n[Step {step}/6] Starting backend...", WHITE, bright=True)
+    step += 1
     proc_backend = start_service(
         "Backend (FastAPI)",
         BACKEND_DIR,
-        "python -m uvicorn main:app --reload --host 127.0.0.1 --port 8000",
+        "python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000",
     )
 
     if proc_backend:
         wait_for_service("http://127.0.0.1:8000/", "Backend")
 
-    log("\n[Step 6/6] Starting frontend...", WHITE, bright=True)
+    log(f"\n[Step {step}/6] Starting frontend...", WHITE, bright=True)
+    step += 1
     proc_frontend = start_service(
         "Frontend (Streamlit)",
         FRONTEND_DIR,
@@ -263,13 +362,14 @@ def main():
     log(f"  Frontend:  http://localhost:8501", GREEN, bright=True)
     log(f"  Backend:   http://127.0.0.1:8000", WHITE)
     log(f"  API Docs:  http://127.0.0.1:8000/docs", DIM)
+    log(f"  Network:   {net_config['network']}", WHITE)
     log("", WHITE)
     log(f"  Default login: admin / admin123", YELLOW)
     log("", WHITE)
     if ipfs_started:
-        log_success("IPFS daemon is running — file storage enabled", GREEN)
+        log_success("IPFS daemon is running — file storage enabled")
     else:
-        log_warning("IPFS not running — file storage disabled", YELLOW)
+        log_warning("IPFS not running — file storage disabled")
     log("", WHITE)
     log("  Press Ctrl+C to stop all services.", DIM)
     log("=" * 60 + "\n", CYAN)
