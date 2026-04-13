@@ -25,11 +25,11 @@ st.title(f"Issuer Dashboard — {st.session_state['institution']}")
 
 col_home, col_issuer, col_logout = st.columns([1, 1, 1])
 with col_home:
-    st.page_link("main.py", label="Home", icon=":house:")
+    st.page_link("main.py", label="Home")
 with col_issuer:
-    st.page_link("pages/1_Issuer.py", label="Issue Transcript", icon=":pencil:")
+    st.page_link("pages/1_Issuer.py", label="Issue Transcript")
 with col_logout:
-    if st.button("Logout", icon=":door:"):
+    if st.button("Logout"):
         auth.logout()
         st.rerun()
 
@@ -87,7 +87,7 @@ try:
                         st.caption("N/A")
                 with col_action:
                     verify_url = client.get_verification_url(t.get("hash", ""))
-                    st.page_link(verify_url, label="View", icon=":eye:")
+                    st.page_link(verify_url, label="View")
                 st.divider()
         
         if not search_query and total_pages > 1:

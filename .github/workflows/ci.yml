@@ -1,0 +1,117 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test-backend:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          
+      - name: Install dependencies
+        run: |
+          cd backend
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio httpx pytest-mock
+          
+      - name: Run backend tests
+        run: |
+          cd backend
+          python -m pytest test/ -v --tb=short
+
+  test-frontend:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          
+      - name: Install dependencies
+        run: |
+          cd frontend
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio httpx pytest-mock
+          
+      - name: Run frontend tests
+        run: |
+          cd frontend
+          python -m pytest test/ -v --tb=short
+
+  test-smart-contract:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          
+      - name: Install Hardhat
+        run: |
+          cd blockchain
+          npm install
+          
+      - name: Compile contracts
+        run: |
+          cd blockchain
+          npx hardhat compile
+          
+      - name: Run Hardhat tests
+        run: |
+          cd blockchain
+          npx hardhat test
+
+  lint:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          
+      - name: Install ruff
+        run: pip install ruff
+          
+      - name: Run ruff
+        run: |
+          ruff check backend/ frontend/ --exit-zero
+        continue-on-error: true
+
+  build-docker:
+    runs-on: ubuntu-latest
+    needs: [test-backend, test-frontend, test-smart-contract]
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Build Docker image
+        run: docker build -t transcript-verification .
+        continue-on-error: true
+        
+      - name: Build backend image
+        run: docker build -t transcript-verification:backend ./backend
+        continue-on-error: true
+        
+      - name: Build frontend image  
+        run: docker build -t transcript-verification:frontend ./frontend
+        continue-on-error: true

@@ -194,8 +194,16 @@ IPFS_PORT=5001
 | Network | Use | Requirements |
 |---------|-----|--------------|
 | `localhost` (default) | Development | Hardhat node runs automatically |
-| `sepolia` | Testing | Infura/Alchemy RPC URL + private key |
-| `mainnet` | Production | Infura/Alchemy RPC URL + private key |
+| `sepolia` | Testing | Test ETH + deployed contract |
+| `mainnet` | Production | Real ETH + deployed contract |
+
+### Getting Test ETH (Sepolia)
+
+1. Create an Ethereum wallet (e.g., MetaMask)
+2. Get test ETH from a Sepolia faucet:
+   - https://faucet.sepolia.io
+   - https://www.alchemy.com/faucets/ethereum-sepolia
+3. Copy the private key from your wallet
 
 ### Switching Networks
 

@@ -3,7 +3,10 @@ pragma solidity ^0.8.0;
 
 contract TranscriptRegistry {
 
+    // Events for off-chain indexing
     event TranscriptIssued(string indexed hash, address indexed issuer, uint256 timestamp);
+    event TranscriptVerified(string indexed hash, address indexed verifier, uint256 timestamp);
+    event TranscriptDownloaded(string indexed hash, address indexed downloader, uint256 timestamp);
 
     struct Transcript {
         string documentHash;
@@ -31,6 +34,16 @@ contract TranscriptRegistry {
         returns (bool)
     {
         return transcripts[hash].timestamp != 0;
+    }
+
+    function recordVerification(string memory hash) public {
+        require(transcripts[hash].timestamp != 0, "Transcript not found");
+        emit TranscriptVerified(hash, msg.sender, block.timestamp);
+    }
+
+    function recordDownload(string memory hash) public {
+        require(transcripts[hash].timestamp != 0, "Transcript not found");
+        emit TranscriptDownloaded(hash, msg.sender, block.timestamp);
     }
 
     function getTotalCount() public view returns (uint256) {

@@ -213,3 +213,83 @@ def list_transcripts(offset=0, limit=20):
     except Exception as e:
         print(f"List transcripts error: {e}")
         raise ConnectionError("Blockchain node not available")
+
+
+def record_verification(hash_value):
+    try:
+        _w3 = w3()
+        contract = _get_contract()
+        account = _get_account()
+        tx_hash = contract.functions.recordVerification(hash_value).transact({"from": account})
+        receipt = _w3.eth.wait_for_transaction_receipt(tx_hash)
+        return receipt
+    except Exception as e:
+        print(f"Record verification error: {e}")
+        raise ConnectionError("Failed to record verification")
+
+
+def record_download(hash_value):
+    try:
+        _w3 = w3()
+        contract = _get_contract()
+        account = _get_account()
+        tx_hash = contract.functions.recordDownload(hash_value).transact({"from": account})
+        receipt = _w3.eth.wait_for_transaction_receipt(tx_hash)
+        return receipt
+    except Exception as e:
+        print(f"Record download error: {e}")
+        raise ConnectionError("Failed to record download")
+
+
+def get_events(from_block=0, to_block="latest"):
+    try:
+        _w3 = w3()
+        contract = _get_contract()
+        
+        issued_events = contract.events.TranscriptIssued().get_logs(
+            fromBlock=from_block,
+            toBlock=to_block
+        )
+        
+        verified_events = contract.events.TranscriptVerified().get_logs(
+            fromBlock=from_block,
+            toBlock=to_block
+        )
+        
+        downloaded_events = contract.events.TranscriptDownloaded().get_logs(
+            fromBlock=from_block,
+            toBlock=to_block
+        )
+        
+        return {
+            "issued": [
+                {
+                    "hash": e["args"]["hash"],
+                    "issuer": e["args"]["issuer"],
+                    "timestamp": e["args"]["timestamp"],
+                    "block": e["blockNumber"],
+                }
+                for e in issued_events
+            ],
+            "verified": [
+                {
+                    "hash": e["args"]["hash"],
+                    "verifier": e["args"]["verifier"],
+                    "timestamp": e["args"]["timestamp"],
+                    "block": e["blockNumber"],
+                }
+                for e in verified_events
+            ],
+            "downloaded": [
+                {
+                    "hash": e["args"]["hash"],
+                    "downloader": e["args"]["downloader"],
+                    "timestamp": e["args"]["timestamp"],
+                    "block": e["blockNumber"],
+                }
+                for e in downloaded_events
+            ],
+        }
+    except Exception as e:
+        print(f"Get events error: {e}")
+        return {"issued": [], "verified": [], "downloaded": []}

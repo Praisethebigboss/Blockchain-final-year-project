@@ -214,3 +214,25 @@ def test_error_classes_import():
     from backend_client import BackendError, DuplicateError
     assert BackendError is not None
     assert DuplicateError is not None
+
+
+def test_list_transcripts():
+    """Test list_transcripts method."""
+    client = BackendClient()
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {
+        "total": 2,
+        "offset": 0,
+        "limit": 10,
+        "transcripts": [
+            {"hash": "a" * 64, "issuer": "0x123", "timestamp": 1234567890},
+            {"hash": "b" * 64, "issuer": "0x456", "timestamp": 1234567891},
+        ],
+    }
+    
+    with patch("requests.get", return_value=mock_response):
+        result = client.list_transcripts(offset=0, limit=10)
+    
+    assert result["total"] == 2
+    assert len(result["transcripts"]) == 2

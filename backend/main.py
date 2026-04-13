@@ -187,3 +187,75 @@ async def list_all_transcripts(offset: int = 0, limit: int = 20):
         raise HTTPException(status_code=503, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/batch-store")
+async def batch_store(files: list[UploadFile] = File(...)):
+    if not files:
+        raise HTTPException(status_code=400, detail="No files provided")
+    if len(files) > 20:
+        raise HTTPException(status_code=400, detail="Maximum 20 files allowed per batch")
+    
+    import asyncio
+    results = []
+    succeeded = 0
+    failed = 0
+    
+    for file in files:
+        result = {
+            "filename": file.filename,
+            "hash": None,
+            "status": "pending",
+            "tx": None,
+            "error": None,
+        }
+        
+        try:
+            content = await file.read()
+            if len(content) == 0:
+                result["status"] = "error"
+                result["error"] = "File is empty"
+                failed += 1
+                results.append(result)
+                continue
+            
+            file_hash = generate_file_hash(content)
+            result["hash"] = file_hash
+            
+            loop = asyncio.get_event_loop()
+            receipt = await loop.run_in_executor(None, store_hash, file_hash)
+            result["status"] = "stored"
+            result["tx"] = receipt.transactionHash.hex()
+            succeeded += 1
+            
+        except DuplicateTranscriptError as e:
+            result["status"] = "duplicate"
+            result["error"] = str(e)
+            succeeded += 1
+        except ConnectionError as e:
+            result["status"] = "error"
+            result["error"] = "Blockchain node not available"
+            failed += 1
+        except Exception as e:
+            result["status"] = "error"
+            result["error"] = str(e)
+            failed += 1
+        
+        results.append(result)
+    
+    return {
+        "results": results,
+        "total": len(files),
+        "succeeded": succeeded,
+        "failed": failed,
+    }
+
+
+@app.get("/events")
+async def get_events(from_block: int = 0, to_block: str = "latest"):
+    try:
+        from blockchain import get_events as _get_events
+        events = _get_events(from_block, to_block)
+        return events
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

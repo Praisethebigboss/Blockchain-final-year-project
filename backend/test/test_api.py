@@ -365,3 +365,79 @@ def test_conftest_loaded():
     assert clean_test_db is not None
     assert sample_pdf_content is not None
     assert sample_hash is not None
+
+
+class TestBatchStoreEndpoint:
+    """Tests for /batch-store endpoint."""
+
+    @pytest.fixture
+    def client(self):
+        """Create TestClient for the FastAPI app."""
+        from main import app
+        return TestClient(app)
+
+    def test_batch_store_no_files(self, client):
+        """Test batch store with no files."""
+        response = client.post("/batch-store")
+        
+        assert response.status_code in [400, 422]
+
+    def test_batch_store_too_many_files(self, client, sample_pdf_content):
+        """Test batch store with too many files."""
+        files = [
+            ("files", (f"file{i}.pdf", sample_pdf_content, "application/pdf"))
+            for i in range(21)
+        ]
+        response = client.post("/batch-store", files=files)
+        
+        assert response.status_code == 400
+
+    def test_batch_store_single_file(self, client, sample_pdf_content):
+        """Test batch store with one file."""
+        mock_receipt = MagicMock()
+        mock_receipt.transactionHash.hex.return_value = "0xabc123"
+        
+        with patch("main.generate_file_hash", return_value="a" * 64):
+            with patch("main.store_hash", return_value=mock_receipt):
+                response = client.post(
+                    "/batch-store",
+                    files={"files": ("test.pdf", sample_pdf_content, "application/pdf")},
+                )
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 1
+        assert data["results"][0]["status"] == "stored"
+
+    def test_batch_store_multiple_files(self, client, sample_pdf_content):
+        """Test batch store with multiple files."""
+        mock_receipt = MagicMock()
+        mock_receipt.transactionHash.hex.return_value = "0xabc123"
+        
+        files = [
+            ("files", (f"file{i}.pdf", sample_pdf_content, "application/pdf"))
+            for i in range(3)
+        ]
+        
+        with patch("main.generate_file_hash", return_value="a" * 64):
+            with patch("main.store_hash", return_value=mock_receipt):
+                response = client.post("/batch-store", files=files)
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 3
+
+    def test_batch_store_duplicate_handling(self, client, sample_pdf_content):
+        """Test batch store handles duplicates."""
+        from blockchain import DuplicateTranscriptError
+        
+        with patch("main.generate_file_hash", return_value="a" * 64):
+            with patch("main.store_hash", side_effect=DuplicateTranscriptError("Already issued")):
+                response = client.post(
+                    "/batch-store",
+                    files={"files": ("test.pdf", sample_pdf_content, "application/pdf")},
+                )
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert data["results"][0]["status"] == "duplicate"

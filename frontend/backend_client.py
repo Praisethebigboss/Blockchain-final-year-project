@@ -108,3 +108,13 @@ class BackendClient:
             return response.json()
         except requests.exceptions.RequestException as e:
             raise BackendError(str(e), 503)
+
+    def batch_store(self, file_list: list[tuple]) -> dict:
+        try:
+            files = [("files", (name, data)) for name, data in file_list]
+            response = requests.post(f"{self.base_url}/batch-store", files=files, timeout=120)
+            if response.status_code != 200:
+                raise BackendError(response.json().get("detail", "Batch store failed"), response.status_code)
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            raise BackendError(str(e), 503)

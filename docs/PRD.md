@@ -207,8 +207,8 @@ mapping(string => Transcript) public transcripts;
 6. ~~**Contract Events**~~ — **Done** — Emit `TranscriptIssued(hash, issuer, timestamp)` for indexing
 7. ~~**List Transcripts**~~ — **Done** — Paginated /transcripts endpoint with getTotalCount, getHashes
 8. ~~**Unit & Integration Tests**~~ — **Done** — 91 pytest tests for backend
-9. **Testnet Deployment** — Sepolia/Goerli config with Infura/Alchemy
-10. **Batch Operations** — Upload and issue multiple transcripts in one transaction
+9. ~~**Batch Operations**~~ — **Done** — /batch-store endpoint for multiple transcripts
+10. ~~**Testnet Deployment**~~ — **Done** — Sepolia config, hardhat networks, deployment ready
 11. **CI/CD Pipeline** — Automated lint, test, and deploy
 
 ---
@@ -302,3 +302,5 @@ transcript-verification/
 | 1.7 | 2026-04-07 | Build | Added /transcript/{hash} endpoint, verifier and student pages now display issuer address and timestamp |
 | 1.8 | 2026-04-07 | Build | Added IPFS file storage with AES-256-GCM encryption — store-file, file-status, download endpoints |
 | 1.9 | 2026-04-13 | Build | Added contract events (TranscriptIssued), list transcripts with pagination, 91 backend tests |
+| 2.0 | 2026-04-13 | Build | Added batch operations (/batch-store) for multiple transcripts, 96 tests total |
+| 2.1 | 2026-04-13 | Build | Added testnet deployment (Sepolia), Hardhat network configs |
