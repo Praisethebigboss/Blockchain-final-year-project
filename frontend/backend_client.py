@@ -18,7 +18,7 @@ class DuplicateError(BackendError):
 
 class BackendClient:
     def __init__(self, base_url: str = None, frontend_url: str = None):
-        self.base_url = base_url or os.getenv("BACKEND_URL", "http://127.0.0.1:8000")
+        self.base_url = base_url or os.getenv("BACKEND_URL", "http://127.0.0.1:8888")
         self.frontend_url = frontend_url or os.getenv("FRONTEND_URL", "http://localhost:8501")
 
     def upload_file(self, file_path: str) -> dict:

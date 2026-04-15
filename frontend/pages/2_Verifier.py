@@ -5,10 +5,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from backend_client import BackendClient, BackendError
+import apply_styles
 
 HASH_PATTERN = re.compile(r"^[a-fA-F0-9]{64}$")
 
 st.set_page_config(page_title="Verifier Portal", page_icon=":briefcase:")
+apply_styles.apply_custom_styles()
 
 if "logged_in" not in st.session_state:
     st.session_state["logged_in"] = False
@@ -23,7 +25,7 @@ st.markdown("Verify academic transcript hashes against the blockchain.")
 st.page_link("main.py", label="Back to Home")
 st.markdown("---")
 
-default_backend = "http://127.0.0.1:8000"
+default_backend = "http://127.0.0.1:8888"
 default_frontend = "http://localhost:8501"
 backend_url = st.sidebar.text_input("Backend URL", value=default_backend)
 st.sidebar.markdown("---")

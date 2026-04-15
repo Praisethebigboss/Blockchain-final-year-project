@@ -8,10 +8,12 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 import auth
 from backend_client import BackendClient, BackendError, DuplicateError
+import apply_styles
 
 HASH_PATTERN = re.compile(r"^[a-fA-F0-9]{64}$")
 
 st.set_page_config(page_title="Issuer Portal", page_icon=":university:")
+apply_styles.apply_custom_styles()
 
 if "logged_in" not in st.session_state:
     st.session_state["logged_in"] = False
@@ -37,7 +39,7 @@ with col3:
 
 st.markdown("---")
 
-default_backend = "http://127.0.0.1:8000"
+default_backend = "http://127.0.0.1:8888"
 default_frontend = "http://localhost:8501"
 backend_url = st.sidebar.text_input("Backend URL", value=default_backend)
 st.sidebar.markdown("---")
@@ -136,33 +138,33 @@ with tab_single:
                     f'<a href="{verify_url}" target="_blank">'
                     f'<button style="background-color:#FF4B4B;color:white;padding:10px 20px;'
                     f'border:none;border-radius:6px;cursor:pointer;width:100%;font-size:14px;">'
-                f"Open Verification Page</button>"
-                f"</a>",
-                unsafe_allow_html=True,
-            )
-        with col_download:
-            if ipfs_stored:
-                st.markdown(
-                    f'<a href="{download_url}" download="{issue_data["filename"]}">'
-                    f'<button style="background-color:#4CAF50;color:white;padding:10px 20px;'
-                    f'border:none;border-radius:6px;cursor:pointer;width:100%;font-size:14px;">'
-                    f"Download Original</button>"
+                    f"Open Verification Page</button>"
                     f"</a>",
                     unsafe_allow_html=True,
                 )
-            else:
-                st.caption("Download unavailable (IPFS not running)")
+            with col_download:
+                if ipfs_stored:
+                    st.markdown(
+                        f'<a href="{download_url}" download="{issue_data["filename"]}">'
+                        f'<button style="background-color:#4CAF50;color:white;padding:10px 20px;'
+                        f'border:none;border-radius:6px;cursor:pointer;width:100%;font-size:14px;">'
+                        f"Download Original</button>"
+                        f"</a>",
+                        unsafe_allow_html=True,
+                    )
+                else:
+                    st.caption("Download unavailable (IPFS not running)")
 
-        st.session_state["issue_history"].insert(0, {
-            "filename": issue_data["filename"],
-            "hash": issue_data["hash"],
-            "tx": store_result.get("tx", "N/A") if store_result else "Failed",
-            "ipfs": "Yes" if ipfs_stored else "No",
-            "time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        })
+            st.session_state["issue_history"].insert(0, {
+                "filename": issue_data["filename"],
+                "hash": issue_data["hash"],
+                "tx": store_result.get("tx", "N/A") if store_result else "Failed",
+                "ipfs": "Yes" if ipfs_stored else "No",
+                "time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            })
 
-        st.session_state["last_issued"] = None
-        st.rerun()
+            st.session_state["last_issued"] = None
+            st.rerun()
 
 with tab_batch:
     st.markdown("### Batch Upload Multiple Transcripts")

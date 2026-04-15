@@ -5,7 +5,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 import auth
 
-st.set_page_config(page_title="Transcript Verification", page_icon=":scroll:")
+st.set_page_config(page_title="Transcript Verification", page_icon=":scroll:", layout="wide")
+
+import apply_styles
+apply_styles.apply_custom_styles()
 
 if "logged_in" not in st.session_state:
     st.session_state["logged_in"] = False

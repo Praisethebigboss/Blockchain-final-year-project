@@ -6,8 +6,10 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
 import auth
 from backend_client import BackendClient, BackendError
+import apply_styles
 
 st.set_page_config(page_title="Dashboard — Issuer Portal", page_icon=":chart:")
+apply_styles.apply_custom_styles()
 
 if "logged_in" not in st.session_state:
     st.session_state["logged_in"] = False

@@ -1,7 +1,12 @@
 import streamlit as st
 import auth
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+import apply_styles
 
 st.set_page_config(page_title="Login — Issuer Portal", page_icon=":lock:")
+apply_styles.apply_custom_styles()
 
 st.title("Issuer Login")
 

@@ -6,10 +6,9 @@ async function main() {
   const Contract = await hre.ethers.getContractFactory("TranscriptRegistry");
 
   const contract = await Contract.deploy();
+  await contract.waitForDeployment();
 
-  await contract.deployed();
-
-  const address = contract.address;
+  const address = await contract.getAddress();
   console.log("Contract deployed to:", address);
 
   const configPath = path.join(__dirname, "..", "backend", "contract-config.json");
