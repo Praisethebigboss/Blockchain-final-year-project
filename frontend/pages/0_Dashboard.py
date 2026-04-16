@@ -88,7 +88,8 @@ try:
                     else:
                         st.caption("N/A")
                 with col_action:
-                    verify_url = client.get_verification_url(t.get("hash", ""))
+                    hash_value = t.get("hash", "")
+                    verify_url = f"../3_Student.py?verify={hash_value}"
                     st.page_link(verify_url, label="View")
                 st.divider()
         

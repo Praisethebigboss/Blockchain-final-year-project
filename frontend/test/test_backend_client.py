@@ -177,6 +177,31 @@ class TestBackendClientMethods:
         assert "download" in url
         assert "abc123" in url
 
+    def test_download_file_success(self):
+        """Test download_file success."""
+        client = BackendClient()
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.content = b"PDF file content"
+        mock_response.headers = {"Content-Disposition": 'attachment; filename="transcript.pdf"'}
+        
+        with patch("requests.get", return_value=mock_response):
+            result = client.download_file("a" * 64)
+        
+        assert result["data"] == b"PDF file content"
+        assert result["filename"] == "transcript.pdf"
+
+    def test_download_file_not_found(self):
+        """Test download_file not found."""
+        client = BackendClient()
+        mock_response = MagicMock()
+        mock_response.status_code = 404
+        
+        with patch("requests.get", return_value=mock_response):
+            with pytest.raises(BackendError) as exc:
+                client.download_file("a" * 64)
+        assert exc.value.status_code == 404
+
 
 class TestBackendErrorException:
     """Tests for BackendError exception."""

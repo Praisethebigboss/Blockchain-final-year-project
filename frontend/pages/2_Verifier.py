@@ -25,7 +25,7 @@ st.markdown("Verify academic transcript hashes against the blockchain.")
 st.page_link("main.py", label="Back to Home")
 st.markdown("---")
 
-default_backend = "http://127.0.0.1:8888"
+default_backend = "http://127.0.0.1:8889"
 default_frontend = "http://localhost:8501"
 backend_url = st.sidebar.text_input("Backend URL", value=default_backend)
 st.sidebar.markdown("---")
@@ -100,15 +100,17 @@ if hash_input:
                                 st.markdown(f"**Filename:** `{file_status['filename']}`")
                                 st.markdown(f"**Size:** `{file_status['size'] / 1024:.1f} KB`")
 
-                                download_url = client.get_download_url(hash_input)
-                                st.markdown(
-                                    f'<a href="{download_url}" download="{file_status["filename"]}">'
-                                    f'<button style="background-color:#4CAF50;color:white;padding:12px 24px;'
-                                    f'border:none;border-radius:6px;cursor:pointer;width:100%;font-size:16px;">'
-                                    f"Download Original Transcript</button>"
-                                    f"</a>",
-                                    unsafe_allow_html=True,
-                                )
+                                try:
+                                    download_data = client.download_file(hash_input)
+                                    st.download_button(
+                                        label="Download Original Transcript",
+                                        data=download_data["data"],
+                                        file_name=download_data["filename"],
+                                        mime="application/octet-stream",
+                                        use_container_width=True,
+                                    )
+                                except Exception:
+                                    st.info("Download temporarily unavailable.")
                             else:
                                 st.info("No original file stored. Only hash verification available.")
                         except Exception:

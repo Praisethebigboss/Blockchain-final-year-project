@@ -56,8 +56,8 @@ if st.session_state.get("logged_in"):
 
 st.markdown("### How It Works")
 st.markdown("""
-1. **Issuer** uploads a transcript file and stores its SHA-256 hash on the blockchain.
+1. The **Issuer** uploads a transcript file and stores its SHA-256 hash on the blockchain.
 2. A **shareable verification link** is generated for the student.
-3. **Verifier** (employer/institution) opens the link or enters the hash to confirm authenticity.
+3. The **Verifier** (employer/institution) opens the link or enters the hash to confirm authenticity.
 4. The blockchain ensures the transcript has not been tampered with or forged.
 """)

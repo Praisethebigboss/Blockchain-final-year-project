@@ -6,6 +6,30 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from backend_client import BackendClient, BackendError
 import apply_styles
+import streamlit.components.v1 as components
+
+def copy_to_clipboard(text, key):
+    html = f"""
+    <script>
+    async function copyToClipboard{key}() {{
+        try {{
+            await navigator.clipboard.writeText(`{text}`);
+            document.getElementById('btn{key}').innerHTML = '✅ Copied!';
+            setTimeout(() => {{
+                document.getElementById('btn{key}').innerHTML = '📋 Copy Link';
+            }}, 2000);
+        }} catch (err) {{
+            document.getElementById('btn{key}').innerHTML = '❌ Error';
+        }}
+    }}
+    </script>
+    <button id='btn{key}' onclick='copyToClipboard{key}()' 
+        style='background-color:#4CAF50;color:white;padding:10px 20px;border:none;
+        border-radius:6px;cursor:pointer;width:100%;font-size:14px;'>
+        📋 Copy Link
+    </button>
+    """
+    return components.html(html, height=50, scrolling=False)
 
 HASH_PATTERN = re.compile(r"^[a-fA-F0-9]{64}$")
 
@@ -25,7 +49,7 @@ st.markdown("Check the verification status of your transcript.")
 st.page_link("main.py", label="Back to Home")
 st.markdown("---")
 
-default_backend = "http://127.0.0.1:8888"
+default_backend = "http://127.0.0.1:8889"
 default_frontend = "http://localhost:8501"
 backend_url = st.sidebar.text_input("Backend URL", value=default_backend)
 st.sidebar.markdown("---")
@@ -73,6 +97,17 @@ if verification_ok:
             "issued by an authorized institution."
         )
 
+        verify_url = client.get_verification_url(query_hash)
+        st.markdown("---")
+        st.subheader("Shareable Verification Link")
+        st.markdown("You can share this link with employers to verify your transcript:")
+        col_url, col_btn = st.columns([4, 1])
+        with col_url:
+            st.code(verify_url, language=None)
+        with col_btn:
+            st.markdown("<br>", unsafe_allow_html=True)
+            copy_to_clipboard(verify_url, "student_copy")
+
         transcript = None
         with st.spinner("Fetching details..."):
             try:
@@ -98,19 +133,21 @@ if verification_ok:
                 file_status = client.get_file_status(query_hash)
                 if file_status.get("stored"):
                     st.markdown("---")
-                    st.subheader("Original Transcript Available")
+                    st.subheader("Download Your Transcript")
                     st.markdown(f"**Filename:** `{file_status['filename']}`")
                     st.markdown(f"**Size:** `{file_status['size'] / 1024:.1f} KB`")
 
-                    download_url = client.get_download_url(query_hash)
-                    st.markdown(
-                        f'<a href="{download_url}" download="{file_status["filename"]}">'
-                        f'<button style="background-color:#4CAF50;color:white;padding:14px 28px;'
-                        f'border:none;border-radius:6px;cursor:pointer;width:100%;font-size:18px;">'
-                        f"Download My Transcript</button>"
-                        f"</a>",
-                        unsafe_allow_html=True,
-                    )
+                    try:
+                        download_data = client.download_file(query_hash)
+                        st.download_button(
+                            label="Download My Transcript",
+                            data=download_data["data"],
+                            file_name=download_data["filename"],
+                            mime="application/octet-stream",
+                            use_container_width=True,
+                        )
+                    except Exception:
+                        st.info("Download temporarily unavailable.")
                 else:
                     st.info("Original file not stored.")
             except Exception:

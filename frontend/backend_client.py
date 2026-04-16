@@ -18,7 +18,7 @@ class DuplicateError(BackendError):
 
 class BackendClient:
     def __init__(self, base_url: str = None, frontend_url: str = None):
-        self.base_url = base_url or os.getenv("BACKEND_URL", "http://127.0.0.1:8888")
+        self.base_url = base_url or os.getenv("BACKEND_URL", "http://127.0.0.1:8889")
         self.frontend_url = frontend_url or os.getenv("FRONTEND_URL", "http://localhost:8501")
 
     def upload_file(self, file_path: str) -> dict:
@@ -95,6 +95,27 @@ class BackendClient:
 
     def get_download_url(self, hash_value: str) -> str:
         return f"{self.base_url}/download/{hash_value}"
+
+    def download_file(self, hash_value: str) -> dict:
+        try:
+            response = requests.get(
+                f"{self.base_url}/download/{hash_value}",
+                timeout=30,
+            )
+            if response.status_code == 404:
+                raise BackendError("File not found", 404)
+            if response.status_code != 200:
+                raise BackendError("Download failed", response.status_code)
+            content_disposition = response.headers.get("Content-Disposition", "")
+            filename = "transcript.bin"
+            if "filename=" in content_disposition:
+                filename = content_disposition.split("filename=")[1].strip('"')
+            return {
+                "data": response.content,
+                "filename": filename,
+            }
+        except requests.exceptions.RequestException as e:
+            raise BackendError(str(e), 503)
 
     def list_transcripts(self, offset: int = 0, limit: int = 20) -> dict:
         try:
