@@ -6,7 +6,11 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from dotenv import load_dotenv
 from hash_service import generate_file_hash
-from blockchain import store_hash, verify_hash, get_transcript, DuplicateTranscriptError, get_total_count, list_transcripts
+from blockchain import (
+    store_hash, verify_hash, get_transcript, DuplicateTranscriptError,
+    get_total_count, list_transcripts,
+    generate_student_token, validate_student_access, use_student_token,
+)
 from storage_service import store_file, get_file, file_exists, get_file_info
 
 load_dotenv()
@@ -257,5 +261,132 @@ async def get_events(from_block: int = 0, to_block: str = "latest"):
         from blockchain import get_events as _get_events
         events = _get_events(from_block, to_block)
         return events
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============== STUDENT TOKEN ENDPOINTS ==============
+
+class TokenRequest(BaseModel):
+    hash_value: str
+    student_email: str = ""
+    student_name: str = ""
+    institution: str = "University"
+
+
+class EmailRequest(BaseModel):
+    student_email: str
+    student_name: str = ""
+    hash_value: str
+    verification_url: str
+    institution: str = "University"
+
+
+@app.post("/token/student")
+async def create_student_token(request: TokenRequest):
+    """Generate a student access token for a transcript."""
+    import asyncio
+    
+    if not HASH_PATTERN.match(request.hash_value):
+        raise HTTPException(status_code=400, detail="Invalid SHA256 hash format")
+    
+    try:
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(
+            None,
+            generate_student_token,
+            request.hash_value,
+            request.student_email,
+        )
+        return {
+            "status": "success",
+            "hash": result["hash"],
+            "token": result["token"],
+            "expires_at": result["expires_at"],
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/token/student/validate")
+async def validate_token(hash_value: str, token: str):
+    """Validate a student access token."""
+    import asyncio
+    
+    if not HASH_PATTERN.match(hash_value):
+        raise HTTPException(status_code=400, detail="Invalid SHA256 hash format")
+    
+    try:
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(
+            None,
+            validate_student_access,
+            hash_value,
+            token,
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/token/student/use")
+async def use_token(hash_value: str):
+    """Mark a student token as used (after download)."""
+    import asyncio
+    
+    if not HASH_PATTERN.match(hash_value):
+        raise HTTPException(status_code=400, detail="Invalid SHA256 hash format")
+    
+    try:
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(None, use_student_token, hash_value)
+        return {"status": "success", "used": result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============== EMAIL ENDPOINTS ==============
+
+@app.post("/email/send")
+async def send_transcript_email(request: EmailRequest):
+    """Send transcript notification email to student (mock service)."""
+    try:
+        from email_service import send_transcript_notification
+        
+        result = send_transcript_notification(
+            student_email=request.student_email,
+            student_name=request.student_name,
+            hash_value=request.hash_value,
+            verification_url=request.verification_url,
+            institution=request.institution,
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/student/transcripts")
+async def get_student_transcripts(student_email: str):
+    """Get all transcripts for a student email."""
+    import asyncio
+    
+    if not student_email:
+        raise HTTPException(status_code=400, detail="Email is required")
+    
+    try:
+        loop = asyncio.get_event_loop()
+        from storage_service import get_transcripts_by_email as _get_transcripts
+        transcripts = await loop.run_in_executor(None, _get_transcripts, student_email)
+        
+        result = []
+        for t in transcripts:
+            try:
+                transcript_info = get_transcript(t["hash"])
+                t["transcript"] = transcript_info
+            except:
+                t["transcript"] = None
+            result.append(t)
+        
+        return {"transcripts": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

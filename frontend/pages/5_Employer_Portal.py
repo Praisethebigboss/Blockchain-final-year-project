@@ -4,44 +4,52 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
+import auth
 from backend_client import BackendClient, BackendError
 import apply_styles
 
-HASH_PATTERN = re.compile(r"^[a-fA-F0-9]{64}$")
-
-st.set_page_config(page_title="Verifier Portal", page_icon=":briefcase:")
+st.set_page_config(page_title="Employer Portal", page_icon=":briefcase:")
 apply_styles.apply_custom_styles()
 
-if "logged_in" not in st.session_state:
-    st.session_state["logged_in"] = False
-if "username" not in st.session_state:
-    st.session_state["username"] = None
-if "institution" not in st.session_state:
-    st.session_state["institution"] = None
+if "employer_logged_in" not in st.session_state:
+    st.session_state["employer_logged_in"] = False
+if "employer_email" not in st.session_state:
+    st.session_state["employer_email"] = None
+if "employer_company" not in st.session_state:
+    st.session_state["employer_company"] = None
 
-st.title("Verifier Portal")
-st.markdown("Verify academic transcript hashes against the blockchain.")
+auth.require_employer_auth()
 
-st.page_link("main.py", label="Back to Home")
+st.title("Employer Portal")
+st.markdown(f"**{st.session_state['employer_company']}**")
+
+col_home, col_logout = st.columns([4, 1])
+with col_home:
+    st.page_link("main.py", label="Back to Home")
+with col_logout:
+    if st.button("Logout"):
+        auth.employer_logout()
+        st.rerun()
+
 st.markdown("---")
 
 default_backend = "http://127.0.0.1:8889"
 default_frontend = "http://localhost:8501"
 backend_url = st.sidebar.text_input("Backend URL", value=default_backend)
 st.sidebar.markdown("---")
+st.sidebar.markdown(f"**Logged in as:**")
+st.sidebar.markdown(f"📧 {st.session_state['employer_email']}")
+st.sidebar.markdown(f"🏢 {st.session_state['employer_company']}")
+st.sidebar.markdown("---")
 st.sidebar.markdown("**Requirements**")
 st.sidebar.markdown("- Backend running on the URL above")
 st.sidebar.markdown("- Hardhat node active on localhost:8545")
-st.sidebar.markdown("- IPFS daemon running on port 5001")
 
 client = BackendClient(base_url=backend_url, frontend_url=default_frontend)
 
-query_hash = st.query_params.get("verify", "")
-
 st.header("Verify a Transcript")
 
-if query_hash:
-    st.info(f"Verification link received for hash: `{query_hash}`")
+query_hash = st.query_params.get("verify", "")
 
 hash_input = st.text_input(
     "Enter transcript hash",
@@ -51,7 +59,7 @@ hash_input = st.text_input(
 )
 
 if hash_input:
-    if not HASH_PATTERN.match(hash_input):
+    if not re.compile(r"^[a-fA-F0-9]{64}$").match(hash_input):
         st.warning("Invalid hash format. Must be a 64-character hexadecimal string.")
     else:
         if st.button("Verify", type="primary") or query_hash:
@@ -119,3 +127,6 @@ if hash_input:
                     st.balloons()
                 else:
                     st.error("**Not Found.** This transcript hash does not exist on the blockchain.")
+
+st.markdown("---")
+st.caption("Need help? Contact the issuing institution for verification.")

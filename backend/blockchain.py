@@ -1,9 +1,17 @@
 import os
 import json
+import secrets
+import hashlib
 from web3 import Web3
 from web3.eth import Eth
 from web3 import HTTPProvider
 from dotenv import load_dotenv
+from storage_service import (
+    store_student_token,
+    get_token,
+    validate_student_token,
+    invalidate_token,
+)
 
 load_dotenv()
 
@@ -293,3 +301,28 @@ def get_events(from_block=0, to_block="latest"):
     except Exception as e:
         print(f"Get events error: {e}")
         return {"issued": [], "verified": [], "downloaded": []}
+
+
+# ============== STUDENT TOKEN FUNCTIONS ==============
+
+
+def generate_student_token(hash_value: str, student_email: str = "") -> dict:
+    """Generate a secure token for student access to a transcript."""
+    random_bytes = secrets.token_bytes(32)
+    token = hashlib.sha256(random_bytes + hash_value.encode()).hexdigest()
+    
+    result = store_student_token(hash_value, token, student_email)
+    return result
+
+
+def validate_student_access(hash_value: str, token: str) -> dict:
+    """
+    Validate student access token.
+    Returns dict with 'valid' (bool) and 'error' (str) keys.
+    """
+    return validate_student_token(hash_value, token)
+
+
+def use_student_token(hash_value: str) -> bool:
+    """Mark a student token as used (after download)."""
+    return invalidate_token(hash_value)

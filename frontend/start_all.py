@@ -100,15 +100,18 @@ def update_env_file(new_address):
 def start_service(name, cwd, command):
     log(f"Starting {name}...", CYAN)
     try:
+        log_file_path = os.path.join(ROOT_DIR, f"{name.replace(' ', '_').lower()}.log")
+        f = open(log_file_path, "w", encoding="utf-8")
         proc = subprocess.Popen(
             command,
             cwd=cwd,
             shell=True,
-            stdout=subprocess.PIPE,
+            stdout=f,
             stderr=subprocess.STDOUT,
         )
+        proc._log_file = f
         processes.append((name, proc))
-        log_success(f"{name} started (PID: {proc.pid})")
+        log_success(f"{name} started (PID: {proc.pid}) - Logs: {log_file_path}")
         return proc
     except Exception as e:
         log_error(f"Failed to start {name}: {e}")
@@ -141,9 +144,11 @@ def run_command(command, cwd):
             shell=True,
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=60,
         )
-        return result.stdout, result.stderr, result.returncode
+        return result.stdout or "", result.stderr or "", result.returncode
     except subprocess.TimeoutExpired:
         return "", "Command timed out", 1
     except Exception as e:
@@ -156,6 +161,8 @@ def check_ipfs_installed():
         shell=True,
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
     )
     if result.returncode == 0:
         return True
@@ -207,6 +214,8 @@ def stop_all():
                 log(f"  Killed {name}", DIM)
             except Exception:
                 pass
+        if hasattr(proc, '_log_file') and not proc._log_file.closed:
+            proc._log_file.close()
     log_success("All services stopped.")
 
 
@@ -242,6 +251,8 @@ def main():
             shell=True,
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
         )
         if ipfs_result.returncode == 0 or "Daemon is running" in ipfs_result.stdout:
             log_success("IPFS daemon is running")
@@ -283,8 +294,8 @@ def main():
             log_success("Contract compiled successfully")
         else:
             log_error("Contract compilation failed")
-            log(f"Output: {stdout[:300]}", RED)
-            log(f"Errors: {stderr[:300]}", RED)
+            log(f"Output: {(stdout or '')[:300]}", RED)
+            log(f"Errors: {(stderr or '')[:300]}", RED)
 
         log(f"\n[Step {step}/6] Deploying contract...", WHITE, bright=True)
         step += 1
@@ -295,7 +306,7 @@ def main():
         )
 
         new_address = None
-        for line in stdout.split("\n"):
+        for line in (stdout or "").split("\n"):
             if "Contract deployed to:" in line:
                 new_address = line.split("Contract deployed to:")[-1].strip()
                 break
@@ -306,9 +317,9 @@ def main():
             update_contract_address(new_address)
         else:
             log_error("Could not find contract address in deployment output")
-            log(f"Output: {stdout[:500]}", DIM)
+            log(f"Output: {(stdout or '')[:500]}", DIM)
             if code != 0:
-                log(f"Stderr: {stderr[:300]}", RED)
+                log(f"Stderr: {(stderr or '')[:300]}", RED)
     else:
         config_path = os.path.join(BACKEND_DIR, "contract-config.json")
         if os.path.exists(config_path):
@@ -382,6 +393,8 @@ def main():
                 if proc.poll() is not None:
                     dead.append((name, proc))
                     log_error(f"{name} stopped unexpectedly!")
+                    if hasattr(proc, '_log_file') and not proc._log_file.closed:
+                        proc._log_file.close()
             for item in dead:
                 processes.remove(item)
             if not processes:

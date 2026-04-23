@@ -139,3 +139,101 @@ class BackendClient:
             return response.json()
         except requests.exceptions.RequestException as e:
             raise BackendError(str(e), 503)
+
+    def generate_student_token(
+        self,
+        hash_value: str,
+        student_email: str = "",
+        student_name: str = "",
+        institution: str = "University",
+    ) -> dict:
+        """Generate a student access token for a transcript."""
+        try:
+            response = requests.post(
+                f"{self.base_url}/token/student",
+                json={
+                    "hash_value": hash_value,
+                    "student_email": student_email,
+                    "student_name": student_name,
+                    "institution": institution,
+                },
+                timeout=30,
+            )
+            if response.status_code != 200:
+                raise BackendError(response.json().get("detail", "Token generation failed"), response.status_code)
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            raise BackendError(str(e), 503)
+
+    def get_verification_url_with_token(self, hash_value: str, token: str) -> str:
+        """Get verification URL with token included."""
+        return f"{self.frontend_url}/pages/3_Student.py?verify={hash_value}&token={token}"
+
+    def validate_student_token(self, hash_value: str, token: str) -> dict:
+        """Validate a student access token."""
+        try:
+            response = requests.get(
+                f"{self.base_url}/token/student/validate",
+                params={"hash_value": hash_value, "token": token},
+                timeout=10,
+            )
+            if response.status_code != 200:
+                raise BackendError(response.json().get("detail", "Token validation failed"), response.status_code)
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            raise BackendError(str(e), 503)
+
+    def use_student_token(self, hash_value: str) -> dict:
+        """Mark a student token as used after download."""
+        try:
+            response = requests.post(
+                f"{self.base_url}/token/student/use",
+                params={"hash_value": hash_value},
+                timeout=10,
+            )
+            if response.status_code != 200:
+                raise BackendError(response.json().get("detail", "Token use failed"), response.status_code)
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            raise BackendError(str(e), 503)
+
+    def send_transcript_email(
+        self,
+        student_email: str,
+        student_name: str,
+        hash_value: str,
+        verification_url: str,
+        institution: str = "University",
+    ) -> dict:
+        """Send transcript notification email to student (mock)."""
+        try:
+            response = requests.post(
+                f"{self.base_url}/email/send",
+                json={
+                    "student_email": student_email,
+                    "student_name": student_name,
+                    "hash_value": hash_value,
+                    "verification_url": verification_url,
+                    "institution": institution,
+                },
+                timeout=30,
+            )
+            if response.status_code != 200:
+                raise BackendError(response.json().get("detail", "Email send failed"), response.status_code)
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            raise BackendError(str(e), 503)
+
+    def get_student_transcripts(self, student_email: str) -> dict:
+        """Get all transcripts for a student email."""
+        try:
+            response = requests.get(
+                f"{self.base_url}/student/transcripts",
+                params={"student_email": student_email},
+                timeout=10,
+            )
+            if response.status_code != 200:
+                raise BackendError(response.json().get("detail", "Failed to get transcripts"), response.status_code)
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            raise BackendError(str(e), 503)

@@ -1,0 +1,27 @@
+{
+  "test@company.com": {
+    "password_hash": "$2b$12$vfYf7ye2BYolMzN1d7nCX.jruMZKO5vQPajXCfNBKP5GQirQK45yO",
+    "company_name": "Test Company",
+    "created_at": "1776338490.1845784"
+  },
+  "duplicate@company.com": {
+    "password_hash": "$2b$12$8Crys.S1EC8XUeuotVthpOFTqt9ykOfebppoGvX0hVI5/ogzLfYaC",
+    "company_name": "Company 1",
+    "created_at": "1776339100.084277"
+  },
+  "auth@test.com": {
+    "password_hash": "$2b$12$h1QG5Nxe1rqdjioD/kxRQuFc2uPgBMYhCaMNZBdkX7GC/fcT6VB62",
+    "company_name": "Auth Company",
+    "created_at": "1776339100.6272407"
+  },
+  "wrongpass@test.com": {
+    "password_hash": "$2b$12$W4CREp1/msuBDlwd3R4myuvRW8vFeTR8x0Sx.Cg0HXm4vCf/3w8IS",
+    "company_name": "Company",
+    "created_at": "1776339101.2322855"
+  },
+  "praiseoluwabamise13@gmail.com": {
+    "password_hash": "$2b$12$R3KROaiCLWDnNmNvBhvbeeNOAyNoZicy6J3TL2sLmUmoUV7euGDmm",
+    "company_name": "admin",
+    "created_at": "1776341547.7554193"
+  }
+}

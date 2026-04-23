@@ -91,6 +91,16 @@ with tab_single:
         help="Supported: PDF, PNG, JPG (max 10MB)",
     )
 
+    student_email = st.text_input(
+        "Student Email Address",
+        placeholder="student@university.edu",
+        help="Email will receive the secure access link (mock email)",
+    )
+    student_name = st.text_input(
+        "Student Name (Optional)",
+        placeholder="John Doe",
+    )
+
     if uploaded_file is not None:
         with st.spinner("Generating hash..."):
             try:
@@ -103,6 +113,8 @@ with tab_single:
                     "hash": file_hash,
                     "file_bytes": file_bytes,
                     "size": len(file_bytes),
+                    "student_email": student_email,
+                    "student_name": student_name,
                 }
                 st.success("File hashed successfully!")
                 st.code(file_hash, language=None)
@@ -148,48 +160,86 @@ with tab_single:
                 except Exception as e:
                     st.warning("IPFS unavailable - download will not work.")
 
-            verify_url = client.get_verification_url(issue_data["hash"])
-            st.markdown("---")
-            st.subheader("Shareable Verification Link")
-            col_url, col_btn = st.columns([4, 1])
-            with col_url:
-                st.code(verify_url, language=None)
-            with col_btn:
-                st.markdown("<br>", unsafe_allow_html=True)
-                copy_to_clipboard(verify_url, "issuer_copy")
-            st.info("Share this link with the student or employer.")
+            token_data = None
+            email_sent = False
+            verify_url = None
 
-            col_verify, col_download = st.columns(2)
-            with col_verify:
-                st.markdown(
-                    f'<a href="{verify_url}" target="_blank">'
-                    f'<button style="background-color:#FF4B4B;color:white;padding:10px 20px;'
-                    f'border:none;border-radius:6px;cursor:pointer;width:100%;font-size:14px;">'
-                    f"Open Verification Page</button>"
-                    f"</a>",
-                    unsafe_allow_html=True,
-                )
-            with col_download:
-                if ipfs_stored:
+            if blockchain_ok:
+                with st.spinner("Generating access token..."):
                     try:
-                        download_data = client.download_file(issue_data["hash"])
-                        st.download_button(
-                            label="Download Original",
-                            data=download_data["data"],
-                            file_name=download_data["filename"],
-                            mime="application/octet-stream",
-                            use_container_width=True,
+                        token_data = client.generate_student_token(
+                            hash_value=issue_data["hash"],
+                            student_email=issue_data["student_email"],
+                            student_name=issue_data["student_name"],
+                            institution=st.session_state.get("institution", "University"),
                         )
-                    except Exception:
-                        st.caption("Download unavailable")
-                else:
-                    st.caption("Download unavailable (IPFS not running)")
+                        verify_url = client.get_verification_url_with_token(
+                            issue_data["hash"],
+                            token_data["token"],
+                        )
+                    except Exception as e:
+                        st.warning(f"Token generation failed: {e}")
+
+            if verify_url and issue_data.get("student_email"):
+                with st.spinner("Sending email notification..."):
+                    try:
+                        email_result = client.send_transcript_email(
+                            student_email=issue_data["student_email"],
+                            student_name=issue_data.get("student_name", ""),
+                            hash_value=issue_data["hash"],
+                            verification_url=verify_url,
+                            institution=st.session_state.get("institution", "University"),
+                        )
+                        email_sent = True
+                        st.success(f"Email notification sent to {issue_data['student_email']}!")
+                    except Exception as e:
+                        st.warning(f"Email notification failed: {e}")
+
+            st.markdown("---")
+            st.subheader("Transcript Issued Successfully!")
+
+            if verify_url:
+                st.markdown("#### Student Access Link (with secure token)")
+                st.info("This link will be sent to the student's email and can only be used once within 24 hours.")
+                col_url, col_btn = st.columns([4, 1])
+                with col_url:
+                    st.code(verify_url, language=None)
+                with col_btn:
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    copy_to_clipboard(verify_url, "issuer_copy")
+
+                st.markdown("**Test the link:**")
+                st.link_button("Open Student Portal", verify_url, use_container_width=True)
+
+                if email_sent:
+                    st.success(f"✓ Email sent to: {issue_data['student_email']}")
+            else:
+                st.warning("Token not generated - student link unavailable")
+
+            st.markdown("---")
+            st.subheader("Admin Actions")
+            if ipfs_stored:
+                try:
+                    download_data = client.download_file(issue_data["hash"])
+                    st.download_button(
+                        label="Download Original (Admin)",
+                        data=download_data["data"],
+                        file_name=download_data["filename"],
+                        mime="application/octet-stream",
+                        use_container_width=True,
+                    )
+                except Exception:
+                    st.caption("Download unavailable")
+            else:
+                st.caption("Download unavailable (IPFS not running)")
 
             st.session_state["issue_history"].insert(0, {
                 "filename": issue_data["filename"],
                 "hash": issue_data["hash"],
+                "student_email": issue_data.get("student_email", ""),
                 "tx": store_result.get("tx", "N/A") if store_result else "Failed",
                 "ipfs": "Yes" if ipfs_stored else "No",
+                "email_sent": "Yes" if email_sent else "No",
                 "time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             })
 

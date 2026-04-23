@@ -89,8 +89,8 @@ try:
                         st.caption("N/A")
                 with col_action:
                     hash_value = t.get("hash", "")
-                    verify_url = f"../3_Student.py?verify={hash_value}"
-                    st.page_link(verify_url, label="View")
+                    verify_url = f"pages/3_Student.py?verify={hash_value}&token=N/A"
+                    st.link_button("View", verify_url, use_container_width=True)
                 st.divider()
         
         if not search_query and total_pages > 1:
